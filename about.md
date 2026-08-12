@@ -1,8 +1,8 @@
 ---
 title: Hakkımda
-subtitle: "Linux, sistem yönetimi, ağ ve yazılım üzerine yazılar."
+subtitle: "Tech blog."
 permalink: /about/
 cover: /assets/images/cover-about.jpg
 ---
 
-Buraya kendinle ilgili birkaç paragraf yazabilirsin.
+
