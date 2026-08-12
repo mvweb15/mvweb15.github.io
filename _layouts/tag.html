@@ -1,0 +1,13 @@
+---
+layout: default
+---
+{% include hero.html size="small" title=page.title cover=page.cover %}
+
+<div class="post-list">
+  {% for post in page.posts %}
+    {% include post-card.html post=post %}
+    {% unless forloop.last %}<hr class="post-list__divider">{% endunless %}
+  {% endfor %}
+  <hr class="post-list__divider">
+  <p class="pagination__status pagination__status--alone">Page 1 of 1</p>
+</div>

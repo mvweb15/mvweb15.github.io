@@ -1,0 +1,14 @@
+{% assign hero_title = include.title | strip %}
+<header class="hero hero--{{ include.size | default: 'small' }}" style="background-image: url('{{ include.cover | default: site.default_cover | relative_url }}');">
+  {% if hero_title != empty %}
+    <div class="hero__inner">
+      <h1 class="hero__title">{{ hero_title }}</h1>
+      {% if include.subtitle %}
+        <p class="hero__subtitle">{{ include.subtitle }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+  {% if include.size == 'full' %}
+    <span class="hero__scroll" aria-hidden="true">&#8964;</span>
+  {% endif %}
+</header>

@@ -1,0 +1,11 @@
+source "https://rubygems.org"
+
+gem "jekyll", "~> 4.3"
+gem "jekyll-paginate"
+gem "jekyll-archives"
+
+# Ruby 3.0+ ile jekyll 4.3 kullanırken bu gemler gerekebiliyor
+gem "webrick"
+gem "csv"
+gem "logger"
+gem "base64"

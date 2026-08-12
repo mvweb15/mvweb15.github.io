@@ -1,0 +1,27 @@
+---
+layout: default
+---
+{% include hero.html size="full" title=site.title subtitle=site.description cover=page.cover %}
+
+<div class="post-list">
+  {% for post in paginator.posts %}
+    {% include post-card.html post=post %}
+    {% unless forloop.last %}<hr class="post-list__divider">{% endunless %}
+  {% endfor %}
+
+  {% if paginator.total_pages > 1 %}
+    <hr class="post-list__divider">
+    <nav class="pagination" aria-label="Sayfalama">
+      {% if paginator.previous_page %}
+        <a href="{{ paginator.previous_page_path | relative_url }}">&laquo; Yeni yazılar</a>
+      {% endif %}
+      <span class="pagination__status">Page {{ paginator.page }} of {{ paginator.total_pages }}</span>
+      {% if paginator.next_page %}
+        <a href="{{ paginator.next_page_path | relative_url }}">Eski yazılar &raquo;</a>
+      {% endif %}
+    </nav>
+  {% else %}
+    <hr class="post-list__divider">
+    <p class="pagination__status pagination__status--alone">Page 1 of 1</p>
+  {% endif %}
+</div>

@@ -1,0 +1,19 @@
+<button class="menu-toggle" id="menu-toggle" aria-label="Menüyü aç" aria-expanded="false" aria-controls="site-nav">
+  <span class="menu-toggle__icon">&#9776;</span>
+  <span class="menu-toggle__label">MENU</span>
+</button>
+
+<nav class="site-nav" id="site-nav" aria-hidden="true">
+  <div class="site-nav__header">
+    <span class="site-nav__title">MENU</span>
+    <button class="site-nav__close" id="menu-close" aria-label="Menüyü kapat">&times;</button>
+  </div>
+  <ol class="site-nav__list">
+    <li><a href="{{ '/' | relative_url }}">Home</a></li>
+    <li><a href="{{ '/about/' | relative_url }}">About</a></li>
+  </ol>
+  <a class="site-nav__subscribe" href="{{ '/feed.xml' | relative_url }}">
+    <span class="icon-rss" aria-hidden="true"></span> SUBSCRIBE
+  </a>
+</nav>
+<div class="site-nav__overlay" id="site-nav-overlay"></div>
