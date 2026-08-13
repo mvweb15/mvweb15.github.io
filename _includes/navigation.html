@@ -1,7 +1,12 @@
 <div class="nav-controls">
   <button class="theme-toggle" id="theme-toggle" aria-label="Açık/koyu tema değiştir">
-    <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">&#9789;</span>
-    <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">&#9728;</span>
+    <svg class="theme-toggle__icon theme-toggle__icon--moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" fill="currentColor"/>
+    </svg>
+    <svg class="theme-toggle__icon theme-toggle__icon--sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.5" fill="currentColor"/>
+      <path d="M12 2.5v2.5M12 19v2.5M4.22 4.22l1.77 1.77M18 18l1.78 1.78M2.5 12H5M19 12h2.5M4.22 19.78L6 18M18 6l1.78-1.78" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
   </button>
   <button class="menu-toggle" id="menu-toggle" aria-label="Menüyü aç" aria-expanded="false" aria-controls="site-nav">
     <span class="menu-toggle__icon">&#9776;</span>
@@ -17,7 +22,6 @@
     <li><a href="{{ '/tag/nginx/' | relative_url }}">Nginx</a></li>
     <li><a href="{{ '/tag/cisco/' | relative_url }}">Cisco</a></li>
   </ol>
-
   <a class="site-nav__contact" href="{{ '/about/' | relative_url }}">İletişim</a>
 </nav>
 <div class="site-nav__overlay" id="site-nav-overlay"></div>

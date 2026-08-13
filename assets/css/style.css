@@ -129,7 +129,10 @@ img { max-width: 100%; display: block; }
   background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 100%);
 }
 
-.hero--full { min-height: 100vh; }
+.hero--full {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
 .hero--small { min-height: 42vh; }
 
 .hero__inner {
@@ -194,6 +197,12 @@ img { max-width: 100%; display: block; }
   cursor: pointer;
   backdrop-filter: blur(4px);
   transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.theme-toggle__icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #fff;
 }
 
 .theme-toggle__icon--moon { display: none; }
