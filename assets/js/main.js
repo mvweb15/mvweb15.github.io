@@ -188,3 +188,24 @@ document.querySelectorAll(".video-loop").forEach(function (wrapper) {
     }
   });
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+  var overlay = document.createElement("div");
+  overlay.className = "img-lightbox";
+  overlay.innerHTML = '<img class="img-lightbox__img">';
+  document.body.appendChild(overlay);
+
+  var lightboxImg = overlay.querySelector("img");
+
+  document.querySelectorAll(".post__content .post-img").forEach(function (img) {
+    img.style.cursor = "zoom-in";
+    img.addEventListener("click", function () {
+      lightboxImg.src = img.src;
+      overlay.classList.add("is-open");
+    });
+  });
+
+  overlay.addEventListener("click", function () {
+    overlay.classList.remove("is-open");
+  });
+});
