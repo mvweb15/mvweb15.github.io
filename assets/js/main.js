@@ -28,21 +28,21 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   themeToggle.addEventListener("click", function () {
-    var isLight = root.getAttribute("data-theme") === "light";
-    if (isLight) {
+    var isDark = root.getAttribute("data-theme") === "dark";
+    if (isDark) {
       root.removeAttribute("data-theme");
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.setAttribute("data-theme", "light");
       localStorage.setItem("theme", "light");
+    } else {
+      root.setAttribute("data-theme", "dark");
+      localStorage.setItem("theme", "dark");
     }
   });
 });
 
 function applyStoredTheme() {
   try {
-    if (localStorage.getItem("theme") === "light") {
-      document.documentElement.setAttribute("data-theme", "light");
+    if (localStorage.getItem("theme") === "dark") {
+      document.documentElement.setAttribute("data-theme", "dark");
     } else {
       document.documentElement.removeAttribute("data-theme");
     }
