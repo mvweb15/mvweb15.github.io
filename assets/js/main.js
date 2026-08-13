@@ -54,3 +54,137 @@ window.addEventListener("pageshow", function (event) {
     applyStoredTheme();
   }
 });
+
+(function () {
+  var btn = document.getElementById("scroll-top");
+  if (!btn) return;
+
+  window.addEventListener("scroll", function () {
+    if (window.scrollY > 400) {
+      btn.classList.add("is-visible");
+    } else {
+      btn.classList.remove("is-visible");
+    }
+  });
+
+  btn.addEventListener("click", function () {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+})();
+
+(function () {
+  var content = document.getElementById("post-content");
+  var tocNav = document.getElementById("post-toc-nav");
+  var tocAside = document.getElementById("post-toc");
+  if (!content || !tocNav || !tocAside) return;
+
+  var headings = content.querySelectorAll("h2, h3");
+  if (headings.length === 0) {
+    tocAside.style.display = "none";
+    var spacer = document.querySelector(".post-spacer");
+    if (spacer) spacer.style.display = "none";
+    return;
+  }
+
+  var links = [];
+  headings.forEach(function (heading, index) {
+    if (!heading.id) {
+      heading.id = "section-" + index;
+    }
+    var a = document.createElement("a");
+    a.href = "#" + heading.id;
+    a.textContent = heading.textContent;
+    if (heading.tagName === "H3") a.classList.add("toc-h3");
+    tocNav.appendChild(a);
+    links.push({ link: a, target: heading });
+  });
+
+  var manualOverride = null;
+
+tocNav.addEventListener("click", function (e) {
+  if (e.target.tagName === "A") {
+    e.preventDefault();
+    var id = e.target.getAttribute("href").slice(1);
+    var el = document.getElementById(id);
+    if (el) {
+      links.forEach(function (item) {
+        item.link.classList.toggle("is-active", item.link === e.target);
+      });
+      manualOverride = e.target;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(function () { manualOverride = null; }, 700);
+    }
+  }
+});
+
+  function updateActive() {
+  function updateActive() {
+  if (manualOverride) return;
+
+  var scrollY = window.scrollY;
+  var docHeight = document.documentElement.scrollHeight;
+  var viewportHeight = window.innerHeight;
+  var atBottom = scrollY + viewportHeight >= docHeight - 2;
+
+  var current = links[0];
+  for (var i = 0; i < links.length; i++) {
+    var rect = links[i].target.getBoundingClientRect();
+    if (rect.top <= 150) {
+      current = links[i];
+    }
+  }
+  if (atBottom) {
+    current = links[links.length - 1];
+  }
+
+  links.forEach(function (item) {
+    item.link.classList.toggle("is-active", item === current);
+  });
+}
+  var scrollY = window.scrollY;
+  var docHeight = document.documentElement.scrollHeight;
+  var viewportHeight = window.innerHeight;
+  var atBottom = scrollY + viewportHeight >= docHeight - 2;
+
+  var current = links[0];
+  for (var i = 0; i < links.length; i++) {
+    var rect = links[i].target.getBoundingClientRect();
+    if (rect.top <= 150) {
+      current = links[i];
+    }
+  }
+  if (atBottom) {
+    current = links[links.length - 1];
+  }
+
+  links.forEach(function (item) {
+    item.link.classList.toggle("is-active", item === current);
+  });
+}
+
+window.addEventListener("scroll", updateActive);
+updateActive();
+
+ 
+})();
+document.querySelectorAll(".video-loop").forEach(function (wrapper) {
+  var video = wrapper.querySelector("video");
+
+  function toggle() {
+    if (video.paused) {
+      video.play();
+      wrapper.classList.remove("is-paused");
+    } else {
+      video.pause();
+      wrapper.classList.add("is-paused");
+    }
+  }
+
+  wrapper.addEventListener("click", toggle);
+  wrapper.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggle();
+    }
+  });
+});

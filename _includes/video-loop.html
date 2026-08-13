@@ -1,0 +1,12 @@
+<div class="video-loop" tabindex="0" role="button" aria-label="Videoyu oynat/duraklat">
+  <video
+    class="video-loop__video"
+    src="{{ include.src | relative_url }}"
+    autoplay
+    muted
+    loop
+    playsinline
+    preload="metadata">
+  </video>
+  <span class="video-loop__icon" aria-hidden="true">&#10074;&#10074;</span>
+</div>

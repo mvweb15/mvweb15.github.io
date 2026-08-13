@@ -3,28 +3,37 @@ layout: default
 ---
 {% include hero.html size="small" cover=page.cover %}
 
-<article class="post">
-  <div class="post__header">
-    <h1 class="post__title">{{ page.title }}</h1>
-    <div class="post__meta">
-      <span class="post__author">{{ site.author }}</span>
-      <span class="post-card__divider">|</span>
-      <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%d %b %Y" | upcase }}</time>
-      {% if page.tags.first %}
-        on <a href="{{ site.baseurl }}/tag/{{ page.tags.first | slugify }}/">{{ page.tags.first | capitalize }}</a>
-      {% endif %}
-    </div>
-  </div>
+<div class="post-layout">
+  <div class="post-spacer" aria-hidden="true"></div>
 
-  <div class="post__content">
-    {{ content }}
-  </div>
-
-  {% if page.tags.size > 0 %}
-    <div class="post__tags">
-      {% for tag in page.tags %}
-        <a class="tag-pill" href="{{ site.baseurl }}/tag/{{ tag | slugify }}/">#{{ tag }}</a>
-      {% endfor %}
+  <article class="post">
+    <div class="post__header">
+      <h1 class="post__title">{{ page.title }}</h1>
+      <div class="post__meta">
+        <span class="post__author">{{ site.author }}</span>
+        <span class="post-card__divider">|</span>
+        <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%d %b %Y" | upcase }}</time>
+        {% if page.tags.first %}
+          on <a href="{{ site.baseurl }}/tag/{{ page.tags.first | slugify }}/">{{ page.tags.first | capitalize }}</a>
+        {% endif %}
+      </div>
     </div>
-  {% endif %}
-</article>
+
+    <div class="post__content" id="post-content">
+      {{ content }}
+    </div>
+
+    {% if page.tags.size > 0 %}
+      <div class="post__tags">
+        {% for tag in page.tags %}
+          <a class="tag-pill" href="{{ site.baseurl }}/tag/{{ tag | slugify }}/">#{{ tag }}</a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </article>
+
+  <aside class="post-toc" id="post-toc">
+    <span class="post-toc__title">Contents</span>
+    <nav class="post-toc__nav" id="post-toc-nav"></nav>
+  </aside>
+</div>
