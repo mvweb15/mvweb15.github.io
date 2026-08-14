@@ -601,6 +601,8 @@ html[data-theme="dark"] .theme-toggle__icon--sun { display: none; }
 .video-loop.is-paused .video-loop__icon {
   opacity: 1;
 }
+.video-loop--small { max-width: 500px; margin-left: 0; margin-right: auto; }
+.video-loop--medium { max-width: 650px; margin-left: 0; margin-right: auto; }
 
 /* ---------- Image lightbox (tıklayınca büyütme) ---------- */
 .img-lightbox {

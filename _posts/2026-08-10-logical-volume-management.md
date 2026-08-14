@@ -3,7 +3,7 @@ title: "Logical Volume Management"
 tags: [lvm]
 cover: /assets/images/cover-lvm.jpg
 ---
-Logical Volume Management (LVM) konusunu anlatmaya başlamadan önce kısaca bu yazının ortaya çıkma sebebinden ve içeriğinden bahsetmek istiyorum. İnternette LVM hakkında bir çok yazı bulunsa da, konuyu araştırmaya başladığım sürede okuduğum bazı yazıların ortak özelliği yeterince açıklayıcı veya kapsamlı olmamasıydı. Bu yüzden öğrendiklerimi, bu konunun temeli olan fiziksel disklerden en üst katmanına kadar bir bütün şeklinde açıklayarak bu yazıda toplamak istedim. İlk olarak LVM’siz bir sistemde oluşan bir duruma göz atacağız. Sonrasında ise LVM ne olduğunu ve yapısını açıklayarak bu durumu nasıl çözdüğünü ve diğer avantajlarını anlatacağım.
+Logical Volume Management (LVM) konusunu anlatmaya başlamadan önce kısaca bu yazının ortaya çıkma sebebinden ve içeriğinden bahsetmek istiyorum. İnternette LVM hakkında bir çok yazı bulunsa da, konuyu araştırmaya başladığım sürede okuduğum bazı yazıların ortak özelliği yeterince açıklayıcı veya kapsamlı olmamasıydı. Bu yüzden öğrendiklerimi, bu konunun temeli olan fiziksel disklerden en üst katmanına kadar bir bütün şeklinde açıklayarak bu yazıda toplamak istedim. İlk olarak LVM’siz bir sistemde oluşan bir duruma göz atacağız. Sonrasında ise LVM'in ne olduğunu ve yapısını açıklayarak bu durumu nasıl çözdüğünü açıklayacağım. Daha sonra LVM'in diğer avantajlarını anlatacağım.
 
 ## Log Dosyalarının Diski Doldurması
 
@@ -81,11 +81,247 @@ Fiziksel Hacim (PV) oluşturmak için  `pvcreate` komutunu kullanıyoruz. Bölü
 <img src="/assets/images/lvm/pvcreate1.png" alt="pvcreate1" class="post-img post-img--left" style="max-width: 650px;">
 Oluşturduğumuz PV'nin detaylarını görmek için `pvdisplay` komutunu kullanın.
 <img src="/assets/images/lvm/pvdisplay.png" alt="pvdisplay" class="post-img post-img--left" style="max-width: 650px;">
-1: PV’nin adı oluşturduğumuz Fiziksel diskin adı olan /dev/sdb1.<br>
-2: VG Name boş çünkü henüz bu Fiziksel Hacmi bir Hacim Grubu’na eklemedik.<br>
-3: PV Size 50 GiB Fiziksel Hacmin boyutunu belirtiyor. Buradaki “GiB” ile “GB”’ı karıştırmayın.<br>
-4: Allocatable NO “çünkü Fiziksel Hacim henüz bir Hacim Grubu’na eklemedik.<br>
-5 - 6 - 7 - 8: Bu kısmımda PE’nin ne olduğunu açıklayayım. PE (Physical Extent) yani Fiziksel Birim, Fiziksel Hacim (PV) üzerindeki en küçük depolama biriminidir. Fiziksel Hacim, Hacim Grubu’na dahil edildiğinde disk byte şeklinde değil, sabit boyutlu bloklara (extent) bölünerek yönetilir. Bu blokların boyutu 4 MiB. Yani bu Fiziksel Hacim’imiz henüz bir Hacim Grubu’na eklenmediği için henüz extentlere bölünmedi ve bu yüzden PE ile alakalı kısımlarda şimdilik 0 yazıyor.<br>
+1: PV’nin adı oluşturduğumuz Fiziksel diskin adı olan /dev/sdb1.
+
+2: VG Name boş çünkü henüz bu Fiziksel Hacmi bir Hacim Grubu’na eklemedik.
+
+3: PV Size 50 GiB Fiziksel Hacmin boyutunu belirtiyor. Buradaki “GiB” ile “GB”’ı karıştırmayın.
+
+4: Allocatable NO “çünkü Fiziksel Hacim henüz bir Hacim Grubu’na eklemedik.<
+
+5 - 6 - 7 - 8: Bu kısmımda PE’nin ne olduğunu açıklayayım. PE (Physical Extent) yani Fiziksel Birim, Fiziksel Hacim (PV) üzerindeki en küçük depolama biriminidir. Fiziksel Hacim, Hacim Grubu’na dahil edildiğinde disk byte şeklinde değil, sabit boyutlu bloklara (extent) bölünerek yönetilir. Bu blokların boyutu 4 MiB. Yani bu Fiziksel Hacim’imiz henüz bir Hacim Grubu’na eklenmediği için henüz extentlere bölünmedi ve bu yüzden PE ile alakalı kısımlarda şimdilik 0 yazıyor.
+
 9:  Fiziksel Hacmin benzersiz kimlik numarasıdır. Bu UUID, /dev/sdb1 gibi bir diskin en başındaki LVM metadata alanına (header) yazılıyor. Yani UUID işletim sistemi tarafında değil, diskin kendi üzerinde fiziksel olarak taşınıyor. Diskin ismi, sırası değişse veya başka bir sunucuya geçse bile PV UUID sabit kalır. LVM yapısı, Fiziksel Hacim (PV), Hacim Grubu (VG) ve Mantıksal Hacim (LV) arasındaki ilişki, bu UUID'ler üzerinden çapraz referans (PV↔VG↔LV) yapılarak oluşur.
 
 Şimdi /dev/sdc1 diskini Fiziksel Hacim’e dönüştürerek devam edelim.
+
+`pvcreate /dev/sdc1`
+<img src="/assets/images/lvm/devsdc.png" alt="devsdc" class="post-img post-img--left" style="max-width: 650px;">
+Oluşturduğumuz PV’leri özet halinde görmek için `pvs` komutunu kullanın.
+<img src="/assets/images/lvm/pvs.png" alt="devsdc" class="post-img post-img--left" style="max-width: 650px;">
+Artık disklerimiz LVM tarafından kullanılmaya ve VG oluşturmaya hazır. 
+
+## Fiziksel Hacimlerden Hacim Grubu Oluşturma
+Şimdi oluşturduğumuz bir PV ile `vgcreate` komutunu kullanarak VG oluşturacağız. Sonrasına bu havuza diğer PV’leri ekleyeceğiz.
+
+Kullanım: `vgcreate <vg_adi> <pv_yolu>`
+
+Komut: `vgcreate vg_base /dev/sdb1`
+<img src="/assets/images/lvm/vgcreate.png" alt="vgcreate" class="post-img post-img--left" style="max-width: 650px;">
+VG’yi incelemeye başlamadan önce az oluşturduğumuz PV’lerin detaylarına tekrardan bakalım.
+<img src="/assets/images/lvm/display.png" alt="display" class="post-img post-img--left" style="max-width: 650px;">
+1: PV, artık bir VG’ye dahil olduğu için tahsis edilebilir durumda.
+
+2: Daha önce açıkladığım üzere PV, VG’ye dahil edildikten sonra 4 MiB’lik bloklara bölünmüş.
+
+3: PV’nin toplam 12799 adet 4 MiB’lik bloklardan oluştuğunu ve boş alanı belirtiyor.
+
+4: Bu diskten henüz bir alan tahsis edilmemiş.
+
+İki PV’mizi karşılaştırarak farkı daha iyi görebiliriz.
+<img src="/assets/images/lvm/fark.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
+Gördüğünüz gibi /dev/sdb1 PV’si, VG’ye eklendikten sonra 12799 adet 4.00 MiB boyutunda bloklara bölünmüş. PV /dev/sdc1 ise henüz bir VG’ye eklenmediği için bloklara bölünmemiş. Şimdi vgdisplay komutu ile oluşturduğumuz VG’yi inceleyelim.
+<img src="/assets/images/lvm/vg.png" alt="vg" class="post-img post-img--left" style="max-width: 650px;">
+1: VG’nin adı.
+
+2: Grubun ait olduğu sistem kimliği. Genelde küme (cluster) ortamlarında kullanılır o yüzden boş.
+
+3: LVM sürümü. Standart
+
+4: Bir VG’nin yapılandırma bilgileri metadata olarak adlandırılır.Bu metadata, LVM’deki hangi LV’nin ne kadar büyüklükte olduğu, hangi PE’lerin nerede tutulduğu, UUID’ler, isimler gibi genel yapılandırma bilgilerini bulunduruyor. Varsayılan olarak metadata, VG içerisinde bulunan tüm PV’lerin kendi metadata alanlarına kopyalanarak saklanır. Bu konu hakkında ihtiyacımız dışında fazla detaya girmek istemiyorum. Detaylarına kaynaklar kısmından bakabilirsiniz. 
+
+5:VG’de her işlem yapıldığında 1 artan revizyon numarası. 
+
+6: Varsayalın değer olarak LV oluşturabilir, silebilir ve boyutlandırabilirsiniz. “read-only” olarak ayarlandığında LV oluşturma, silme ve genişletme gibi hiçbir işlemi yapamazsınız.
+
+7: Boyutlandırabilir olarak işaretlenmiş sabit değer. Çok nadir durumlar dışında değişmez o yüzden detaylandırmayacağım.
+
+8: VG’nin içinde oluşturulabilecek LV sayısı. 0 değeri sınırsız anlamına geliyor.
+
+9: VG’nin içindeki LV sayısı. 0 çünkü henüz LV oluşturmadık
+
+10: Kullanımda olan LV sayısı 0.
+
+11: VG’ye eklenebilecek PV sayısı. 0 değer sınırsız anlamında.
+
+12: VG’deki PV sayısı
+
+13: VG’deki aktif PV sayısı.
+
+14: GiB cinsinden VG’nin boyutu. Bu değer birazdan diğer PV'miz olan `/dev/sdc1`'i eklediğimizde artacak.
+
+15: PE (Physical Extent) boyutu. Varsayılan olarak 4 MiB.
+
+16: VG'nin 4 MiB’lık 12799 adet bloktan oluştuğunu belirtiyor.
+
+17: Tahsis edilmiş blok ve gibibayt sayısı. Henüz bir LV oluşturmadığımız için 0.
+
+18: Tahsis edilebilir blok sayısı. 
+
+19: Benzersiz Kimlik numarası. Daha önce anlattığım gibi bir PV’yi bir VG’ye eklediğimizde, LVM o PV’nin üzerine VG’nin UUID’sini yazar. Böylece PV ismiyle değil, UUID’iyle hangi VG’ye ait olduğunu bilir. 
+
+Aşağıda `pvs -o pv_name,pv_uuid,vg_name,vg_uuid` komutunun çıktısında gördüğünüz gibi `/dev/sdb1` UUID’si üzerinden `vg_base` grubuna işaret ediyor.
+<img src="/assets/images/lvm/point.png" alt="point" class="post-img post-img--left" style="max-width: 750px;">
+Şimdi /dev/sdc1 PV’sini vgextend komutu ile oluşturduğumuz VG’ye ekleyelim.
+
+Kullanım: `vgextend <vg_adı> <pv_adı>`<br>
+Komut: `vgextend vg_base /dev/sdc1`<br>
+<img src="/assets/images/lvm/vgextend.png" alt="vgextend" class="post-img post-img--left" style="max-width: 650px;">
+Tekrar vgdisplay komutunu kullanarak VG’nin boyutunun arttığını görebiliriz. "Cur PV" ve "Act PV" sayısı ikiye yükseldi.
+<img src="/assets/images/lvm/volume.png" alt="volume" class="post-img post-img--left" style="max-width: 650px;">
+Artık PV’lerimiz aynı havuzda. PV UUID’leri `vg_base` adlı VG’mizin VG UUID’sine işaret ediyor.
+<img src="/assets/images/lvm/havuz.png" alt="havuz" class="post-img post-img--left" style="max-width: 650px;">
+## Hacim Grubu'ndan Mantıksal Hacim Oluşturma
+Bu aşamada `lvcreate` komutunu kullanarak `vg_base adlı` VG'mizden, üzerinde dosya sistemi oluşturabileceğimiz bir Mantıksal Hacim (LV) oluşturacağız.
+
+Kullanım: `lvcreate -L <boyut> [M|G|T] -n <lv_adı> <vg_adı>`
+
+Komut: `lvcreate -L 25G -n lv_data1 vg_base`
+
+Bu komutta istediğimiz miktarı `-L` ile byte cinsinden, `-l` ile yüzdelik veya blok cinsinden belirliyoruz. Genelde blok cinsinden belirtilmese de bilmekte fayda var. `-n` ile oluşturmak istediğimiz LV’nin adınıbelirledikten sonra bu hacmin hangi VG’den oluşturulacağını belirtiyoruz. 
+
+`lvdisplay` komutunu kullanarak oluşturduğumuz LV'yi inceleyebilirsiniz.
+<img src="/assets/images/lvm/lvdisplay.png" alt="lvdisplay" class="post-img post-img--left" style="max-width: 650px;">
+1: LV'ye erişim yolu (device path). Dosya sistemi ekledikten sonra LV’yi bu yolu kullanarak mount edeceğiz.
+
+2: LV’adı
+
+3: Bu LV’nin bağlı olduğu VG ismi.
+
+4: Sistemdeki her LV için benzersiz kimlik numarası.
+
+5:  LV üzerinde okuma/yazma yapılabiliyor. LV’nizi read-only olarak ayarlayabilirsiniz.
+
+6: LV'nin hangi host'ta ve ne zaman oluşturulduğu bilgisi.
+
+7: LV aktif ve kullanıma hazır.
+
+8: LV aktif ama şuan mount edilmemiş, kimse kullanmıyor.
+
+9: LV’nin toplam boyutu.
+
+10: LV’yi oluşturan Logical Extend (Mantıksal Blok) sayısı. Toplam 6400 adet 4MiB’lik bloklardan oluşuyor.
+
+11: LV’nin kaç parçadan oluştuğunu gösteriyor. Disk üzerinde tek parça halinde yani bölünmemiş. Bu kısmı daha sonra açıklayacağım.
+
+12: Tahsis kuralları, VG’den almış yani özel bir ayar yok. Genelde bu şekilde.
+
+13: Okuma öncesi (read-ahead) ayarı otomatik belirleniyor.
+
+14: Otomaik ayarın şu anki gerçek read-ahead değeri, 256 sektör. Çok önemli bir detay değil.
+
+15: Kernel içindeki major:minor numarasını gösteriyor. Kernel seviyesinde çalışma zamanında atanan kimlik.
+
+Şimdi 50GB'lık `lv_data2` LV'sini oluşturalım.
+
+`lvcreate -L 50GB -n lv_data2 vg_base`
+<img src="/assets/images/lvm/lvdata2.png" alt="lvdata2" class="post-img post-img--left" style="max-width: 650px;">
+`vgdisplay` komutu ile VG'mizin güncel halini inceleyelim.
+<img src="/assets/images/lvm/vgdisplay2.png" alt="vgdisplay2" class="post-img post-img--left" style="max-width: 650px;">
+1: VG’deki LV sayısı.
+
+2: LV’lerin kaç tanesinin açık/kullanımda olduğunu gösteriyor. Oluşturduğumuz LV’lere henüz bir dosya sistemi ekleyip mount etmediğimiz için şimdilik 0.
+
+3: VG’mizin toplam boyutu. 50 ve 100GB olmak üzere 2 PV eklemiştik.
+
+4: 150GB’lık bu havuzun 75GB’ı kullanılıyor. 25 ve 50GB’lık 2 LV oluşturduk.
+
+5: VG’de kalan boş alan.
+
+lsblk komutu ile dağılımı görebiliriz.
+<img src="/assets/images/lvm/lsblk.png" alt="lsblk" class="post-img post-img--left" style="max-width: 650px;">
+Burada farkedebileceğiniz gibi, varsayılan olarak LVM bir LV oluştururken rastgele veya sırayla PV seçmiyor. Oluşturulmak istenen PV’nin boyutuna en uygun PV’yi seçiyor. Örneğin:
+
+25GB’lık LV > 50 GB’lık PV’den oluşturulmuş.
+
+50GB’lık LV > 100 GB’lık PV’den oluşturulmuş.
+
+Yani LVM, önce bir PV’yi tamamen doldurup taşan kısmı başka bir PV’ye parçalamak (birazdan anlatacağım "segment" konusu) yerine, VG içindeki PV’ler arasından LV’yi tek parça halinde barındırabilecek en uygun olanı seçiyor. Bu LVM’in varsayılan davranışı. Red Hat’in resmi dokümantasyonuna göre bu ayarı değiştirmemeniz tavsiye ediliyor.
+
+Eğer 125 GB’lık bir LV oluşturmuş olsaydık bu boyutta bir PV olmadığı için LV aşağıda gördüğünüz gibi normal olarak parçalara ayrılacaktı.
+<img src="/assets/images/lvm/test.png" alt="test" class="post-img post-img--left" style="max-width: 650px;">
+Örnek olarak oluşturduğum bu LV’ye `lvdisplay` komutu ile bakalım.
+<img src="/assets/images/lvm/segment.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;">
+1: Bu kısmı daha sonra açıklayacağımı söylemiştim. Segment alanı, LV’nin disk üzerinde hangi PV’lerde, hangi alanlarda durduğunu gösterir. Gördüğünüz gibi VG’mizdeki PV’lerin hiçbiri 125GB boyutunda olmadığı için, LV’miz 2 parçaya bölünmüş durumda. LV her zaman fiziksel olarak bitişik olmak zorunda değildir; bu şekilde parçalı da olabilir. Her bitişik parçaya segment diyoruz.Segment sayısı 1 ise LV tek parça halinde, bitişik alanda duruyor demek. Tercih edilen temiz yerleşim budur.
+
+Segment birden fazla ise LV farklı PV’lere yayılmış demek. PV boyutlarının yetersiz olduğu bu gibi durumlarda LV’ler doğal olarak parçalara (segment) bölünebilir. Ancak birazdan başka bir örnekte göstereceğim gibi, istenmeyen parçalı yerleşim, HDD kullanılan ortamlarda disk kafasını daha fazla hareket ettireceğinden tercih edilmez. 
+
+LV’nin doğal olarak parçalara bölündüğü durumunların dışında birden fazla segment sayısı görmeniz her zaman olumsuz bir durum anlamına gelmez. Örneğin yine ilerleyen kısımlarda anlatacağım üzere LVM’in şeritleme (striping) veya anlık görüntü (snapshot) gibi özelliklerini kullandığınızda da bu sayı  artar.
+## Dosya Sistemi Oluşturma ve Bağlama
+LVM sürecinin sonunda LV’lerimize `mkfs` komutu ile dosya sistemi ekleyip sisteme bağlayarak (mount) kullanmaya başlayabiliriz.
+
+Kullanım: `mkfs.<dosya_sistemi_türü> <cihaz_yolu>`
+
+Dosya sistemlerini oluşturmadan önce kısa bir hatırlatma:
+
+`ext4` dosya sistemi masaüstü kullanım veya küçük boyutlu sistemler için idealdir. Boyutu küçültülebilirdir.
+
+`xfs` dosya sisteminin boyutu küçültülemez. Yani bir LV’nin boyutunu büyütebilirsiniz fakat küçültmek isterseniz LV’nizi silip baştan oluşturmanız gerekir. Bu yüzden dikkatli olmalısınız.
+
+Şimdi dosya sistemlerini oluşturalım.
+
+Komut 1: `mkfs.ext4 /dev/vg_base/lv_data1`
+
+Komut 2: `mkfs.xfs /dev/vg_base/lv_data2`
+
+LV’lerimizde dosya sistemi oluşturduktan sonra `blkid` komutuyla kontrol edelim.
+
+Komut 1: `blkid /dev/vg_base/lv_data1`
+
+Komut 2: `blkid /dev/vg_base/lv_data2`
+<img src="/assets/images/lvm/blkid.png" alt="blkid" class="post-img post-img--left" style="max-width: 650px;">
+Bağlama noktaları (mount points) oluşturalım.
+
+Komut 1: `mkdir /data1`
+
+Komut 2: `mkdir /data2`
+
+Dosya sistemli LV'lerimizi bu noktalara bağlayalım.
+
+Komut 1: `mount /dev/vg_base/lv_data1 /data1`
+
+Komut 2: `mount /dev/vg_base/lv_data2 /data2`
+
+`lsblk` komutuyla kontrol edelim.
+<img src="/assets/images/lvm/lsblk2.png" alt="lsblk2" class="post-img post-img--left" style="max-width: 650px;">
+Artık LV’ler kullanılmaya hazır. Bağlantı noktalarının kalıcı olması için LV UUID’lerini `/etc/fstab` dosyasına ekleyeceğiz. Tekrar `blkid` komutunu kullanrak LV’lerimizin UUID’sini öğrenelim.
+<img src="/assets/images/lvm/blkid2.png" alt="blkid2" class="post-img post-img--left" style="max-width: 750px;">
+UUID’leri kopyalayın ve aşağıda gördüğünüz şekilde `/etc/fstab` dosyasının en altına ekleyin.
+<img src="/assets/images/lvm/etc.png" alt="etc" class="post-img post-img--left" style="max-width: 800px;">
+ Artık sistem her açıldığında LV’lerimiz otomatik olarak bu klasörlere bağlanacak.
+
+## Disk Dolma Senaryosu: /data1
+Şimdi /data1 üzerinde log dosyalarının diski doldurma senaryosunu tekrar simule edeceğiz. Bu test için kullanacağımız komut:
+`cat /dev/zero > /data1/application_1.log`
+
+Aşağıda LV’nin doluşunu görebilirsiniz.
+{% include video-loop.html src="/assets/videos/lvm/disk_dolumu2.mp4" class="video-loop--medium" %}
+Artık sistemimizde LVM kullandığımıza göre depolama alanımızın boyutunu genişleterek bu sorunu çözebiliriz. LV boyutunu genişletmek için kullanılan komut `lvextend`.
+
+Kullanım 1: `lvextend -l +100%FREE <lv_path>` VG'deki tüm boş alanı kullanır.
+
+Kullanım 2: `lvextend -L 50G <lv_path>` LV'yi belirli bir boyuta genişletir.
+
+Kullanım 3: `lvextend -L +50G <lv_path` LV'ye belirli bir miktar ekler.
+
+Şimdi LV'mizin boyutunu genişletelim.
+
+Komut: `lvextend -L +24G /dev/vg_base/lv_data1`
+<img src="/assets/images/lvm/extend.png" alt="exnted" class="post-img post-img--left" style="max-width: 650px;">
+25GB yerine 24GB kullanmamın sebebi, şuan genişlettiğimiz `lv_data1`, 50GB’lık `/dev/sdb1` PV’si üzerinde duruyor. İlk bakışta LV’ye 25GB daha ekleyerek 50GB’lık PV’nin hepsini kullanmayı düşünebilirsiniz. Fakat gerçekte `/dev/sdb1`’in LVM için kullanılabilir (allocatable) boyutu tam olarak 50GB değil, yaklaşık 49.5GB’dır. Yani eğer 24 yerine 25GB’lık bir genişletme yapsaydım kalan 500 MB’ın başka bir diske bölündüğünü (segment) görecektik. Bu da aşağıda gördüğünüz gibi karmaşıklığa neden olur ve yönetimi zorlaştırır.
+<img src="/assets/images/lvm/disktest.png" alt="disktest" class="post-img post-img--left" style="max-width: 650px;">
+Bu yüzden bir LV’yi genişletirken üzerinde bulunduğu PV’den başka disklere bölünmesini (segment) istemiyorsanız bu duruma dikkat edin. 
+
+`df -h /data1 /data2` komutu ile LV'lerimizin boyutunu kontrol edelim.
+<img src="/assets/images/lvm/dfh.png" alt="disktest" class="post-img post-img--left" style="max-width: 650px;">
+Fark ettiğiniz gibi, LV’ye 25 GB daha eklememize rağmen boyutu artmadı ve 50GB yerine hala 25GB olarak görünüyor.
+Bunun sebebi lvextend komutu sadece LV’yi büyütür, üzerindeki dosya sisteminin boyutunu değiştirmez. Bu yüzden lvextend komutunu kullandıktan sonra dosya sistemini de genişletmeniz gerekiyor. Bunun için kullanılan komutlar:
+
+Komut 1: `xfs_growfs` XFS dosya sistemini genişletmek için.
+Komut 2: `resizefs` EXT4 dosya sistemini genişletmek için.
+
+LV'mizin dosya sistemini genişletelim.
+
+`xfs_growfs /dev/vg_base/lv_data1`
+
+
