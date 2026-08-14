@@ -101,91 +101,72 @@ window.addEventListener("pageshow", function (event) {
 
   var manualOverride = null;
 
-tocNav.addEventListener("click", function (e) {
-  if (e.target.tagName === "A") {
-    e.preventDefault();
-    var id = e.target.getAttribute("href").slice(1);
-    var el = document.getElementById(id);
-    if (el) {
-      links.forEach(function (item) {
-        item.link.classList.toggle("is-active", item.link === e.target);
-      });
-      manualOverride = e.target;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      setTimeout(function () { manualOverride = null; }, 700);
-    }
-  }
-});
-
-  function updateActive() {
-  function updateActive() {
-  if (manualOverride) return;
-
-  var scrollY = window.scrollY;
-  var docHeight = document.documentElement.scrollHeight;
-  var viewportHeight = window.innerHeight;
-  var atBottom = scrollY + viewportHeight >= docHeight - 2;
-
-  var current = links[0];
-  for (var i = 0; i < links.length; i++) {
-    var rect = links[i].target.getBoundingClientRect();
-    if (rect.top <= 150) {
-      current = links[i];
-    }
-  }
-  if (atBottom) {
-    current = links[links.length - 1];
-  }
-
-  links.forEach(function (item) {
-    item.link.classList.toggle("is-active", item === current);
-  });
-}
-  var scrollY = window.scrollY;
-  var docHeight = document.documentElement.scrollHeight;
-  var viewportHeight = window.innerHeight;
-  var atBottom = scrollY + viewportHeight >= docHeight - 2;
-
-  var current = links[0];
-  for (var i = 0; i < links.length; i++) {
-    var rect = links[i].target.getBoundingClientRect();
-    if (rect.top <= 150) {
-      current = links[i];
-    }
-  }
-  if (atBottom) {
-    current = links[links.length - 1];
-  }
-
-  links.forEach(function (item) {
-    item.link.classList.toggle("is-active", item === current);
-  });
-}
-
-window.addEventListener("scroll", updateActive);
-updateActive();
-
- 
-})();
-document.querySelectorAll(".video-loop").forEach(function (wrapper) {
-  var video = wrapper.querySelector("video");
-
-  function toggle() {
-    if (video.paused) {
-      video.play();
-      wrapper.classList.remove("is-paused");
-    } else {
-      video.pause();
-      wrapper.classList.add("is-paused");
-    }
-  }
-
-  wrapper.addEventListener("click", toggle);
-  wrapper.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" || e.key === " ") {
+  tocNav.addEventListener("click", function (e) {
+    if (e.target.tagName === "A") {
       e.preventDefault();
-      toggle();
+      var id = e.target.getAttribute("href").slice(1);
+      var el = document.getElementById(id);
+      if (el) {
+        links.forEach(function (item) {
+          item.link.classList.toggle("is-active", item.link === e.target);
+        });
+        manualOverride = e.target;
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(function () { manualOverride = null; }, 700);
+      }
     }
+  });
+
+  function updateActive() {
+    if (manualOverride) return;
+
+    var scrollY = window.scrollY;
+    var docHeight = document.documentElement.scrollHeight;
+    var viewportHeight = window.innerHeight;
+    var atBottom = scrollY + viewportHeight >= docHeight - 2;
+
+    var current = links[0];
+    for (var i = 0; i < links.length; i++) {
+      var rect = links[i].target.getBoundingClientRect();
+      if (rect.top <= 150) {
+        current = links[i];
+      }
+    }
+    if (atBottom) {
+      current = links[links.length - 1];
+    }
+
+    links.forEach(function (item) {
+      item.link.classList.toggle("is-active", item === current);
+    });
+  }
+
+  window.addEventListener("scroll", updateActive);
+  updateActive();
+})();
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".video-loop").forEach(function (wrapper) {
+    var video = wrapper.querySelector("video");
+    if (!video) return;
+
+    function toggle() {
+      if (video.paused) {
+        video.play();
+        wrapper.classList.remove("is-paused");
+      } else {
+        video.pause();
+        wrapper.classList.add("is-paused");
+      }
+    }
+
+    wrapper.addEventListener("click", toggle);
+    wrapper.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggle();
+      }
+    });
   });
 });
 
@@ -209,3 +190,4 @@ document.addEventListener("DOMContentLoaded", function () {
     overlay.classList.remove("is-open");
   });
 });
+
