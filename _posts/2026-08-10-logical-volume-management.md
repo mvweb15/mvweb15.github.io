@@ -10,7 +10,7 @@ Logical Volume Management (LVM) konusunu anlatmaya başlamadan önce kısaca bu 
 Öncelikle LVM’siz bir sistemde depolama alanı dolduğunda oluşan duruma bakalım. Sistemin `lsblk` komutu ile görüntüsü şu şekilde:
 ![lsblk komutu çıktısı](/assets/images/lvm/lsblk_cikti.png)
 
-Aşağıdaki ekte sisteme yeni eklenmiş 20 GB’lık bir depolama birimi (/dev/sdb) bulunuyor. Bu depolama birimi /dev/sdb1 ve /dev/sdb2 olarak 10 GB’lık bölümlere ayrılmış. /data1 ve /data2’ye mount edilen bu iki bölüm uygulamaların log dosyalarını kaydetmek için oluşturulmuş.
+Aşağıdaki ekte sisteme yeni eklenmiş 20 GB’lık `/dev/sdb` depolama birimi bulunuyor. Bu depolama birimi `/dev/sdb1` ve `/dev/sdb2` olarak 10 GB’lık bölümlere ayrılmış. `/data1` ve `/data2`’ye mount edilen bu iki bölüm uygulamaların log dosyalarını kaydetmek için oluşturulmuş.
 ![lsblk komuut çıktısı2](/assets/images/lvm/2_lsblk.png)
 
 Gerçek hayatta karşılaşılan sorunlardan birisi olan, log dosyalarının diskteki alanını tüketmesini simule edelim. Bu komut diski hızlıca dolduracağındankendi sistemlerinizde denemeyin.
@@ -80,7 +80,7 @@ Bu işlemin aynısını /dev/sdc için tekrar edin. Diskler bu şekilde görünm
 Fiziksel Hacim (PV) oluşturmak için  `pvcreate` komutunu kullanıyoruz. Bölümü LVM'de kullanmak üzere PV'ye dönüştürmek için `pvcreate /dev/sdb1` komutunu çalıştırın.
 <img src="/assets/images/lvm/pvcreate1.png" alt="pvcreate1" class="post-img post-img--left" style="max-width: 650px;">
 Oluşturduğumuz PV'nin detaylarını görmek için `pvdisplay` komutunu kullanın.
-<img src="/assets/images/lvm/pvdisplay.png" alt="pvdisplay" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/sonpv.png" alt="pvdisplay" class="post-img post-img--left" style="max-width: 650px;">
 1: PV’nin adı oluşturduğumuz Fiziksel diskin adı olan /dev/sdb1.
 
 2: VG Name boş çünkü henüz bu Fiziksel Hacmi bir Hacim Grubu’na eklemedik.
@@ -108,8 +108,8 @@ Kullanım: `vgcreate <vg_adi> <pv_yolu>`
 
 Komut: `vgcreate vg_base /dev/sdb1`
 <img src="/assets/images/lvm/vgcreate.png" alt="vgcreate" class="post-img post-img--left" style="max-width: 650px;">
-VG’yi incelemeye başlamadan önce az oluşturduğumuz PV’lerin detaylarına tekrardan bakalım.
-<img src="/assets/images/lvm/display.png" alt="display" class="post-img post-img--left" style="max-width: 650px;">
+VG’yi incelemeye başlamadan önce az oluşturduğumuz `/dev/sdb1` PV'sinin detaylarına tekrardan bakalım.
+<img src="/assets/images/lvm/sdbbb.png" alt="display" class="post-img post-img--left" style="max-width: 650px;">
 1: PV, artık bir VG’ye dahil olduğu için tahsis edilebilir durumda.
 
 2: Daha önce açıkladığım üzere PV, VG’ye dahil edildikten sonra 4 MiB’lik bloklara bölünmüş.
@@ -119,9 +119,9 @@ VG’yi incelemeye başlamadan önce az oluşturduğumuz PV’lerin detaylarına
 4: Bu diskten henüz bir alan tahsis edilmemiş.
 
 İki PV’mizi karşılaştırarak farkı daha iyi görebiliriz.
-<img src="/assets/images/lvm/fark.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
-Gördüğünüz gibi /dev/sdb1 PV’si, VG’ye eklendikten sonra 12799 adet 4.00 MiB boyutunda bloklara bölünmüş. PV /dev/sdc1 ise henüz bir VG’ye eklenmediği için bloklara bölünmemiş. Şimdi vgdisplay komutu ile oluşturduğumuz VG’yi inceleyelim.
-<img src="/assets/images/lvm/vg.png" alt="vg" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/vgeklenmis.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
+Gördüğünüz gibi `/dev/sdb1` PV’si, VG’ye eklendikten sonra 12799 adet 4.00 MiB boyutunda bloklara bölünmüş. PV `/dev/sdc1` ise henüz bir VG’ye eklenmediği için bloklara bölünmemiş. Şimdi `vgdisplay` komutu ile oluşturduğumuz VG’yi inceleyelim.
+<img src="/assets/images/lvm/vgdisplay10.png" alt="vg" class="post-img post-img--left" style="max-width: 650px;">
 1: VG’nin adı.
 
 2: Grubun ait olduğu sistem kimliği. Genelde küme (cluster) ortamlarında kullanılır o yüzden boş.
@@ -161,16 +161,17 @@ Gördüğünüz gibi /dev/sdb1 PV’si, VG’ye eklendikten sonra 12799 adet 4.0
 19: Benzersiz Kimlik numarası. Daha önce anlattığım gibi bir PV’yi bir VG’ye eklediğimizde, LVM o PV’nin üzerine VG’nin UUID’sini yazar. Böylece PV ismiyle değil, UUID’iyle hangi VG’ye ait olduğunu bilir. 
 
 Aşağıda `pvs -o pv_name,pv_uuid,vg_name,vg_uuid` komutunun çıktısında gördüğünüz gibi `/dev/sdb1` UUID’si üzerinden `vg_base` grubuna işaret ediyor.
-<img src="/assets/images/lvm/point.png" alt="point" class="post-img post-img--left" style="max-width: 750px;">
+<img src="/assets/images/lvm/uuid.png" alt="point" class="post-img post-img--left" style="max-width: 750px;">
 Şimdi /dev/sdc1 PV’sini vgextend komutu ile oluşturduğumuz VG’ye ekleyelim.
 
-Kullanım: `vgextend <vg_adı> <pv_adı>`<br>
-Komut: `vgextend vg_base /dev/sdc1`<br>
+Kullanım: `vgextend <vg_adı> <pv_adı>`
+
+Komut: `vgextend vg_base /dev/sdc1`
 <img src="/assets/images/lvm/vgextend.png" alt="vgextend" class="post-img post-img--left" style="max-width: 650px;">
-Tekrar vgdisplay komutunu kullanarak VG’nin boyutunun arttığını görebiliriz. "Cur PV" ve "Act PV" sayısı ikiye yükseldi.
-<img src="/assets/images/lvm/volume.png" alt="volume" class="post-img post-img--left" style="max-width: 650px;">
+Tekrar `vgdisplay` komutunu kullanarak VG’nin boyutunun arttığını görebiliriz. "Cur PV" ve "Act PV" sayısı ikiye yükseldi.
+<img src="/assets/images/lvm/okey.png" alt="volume" class="post-img post-img--left" style="max-width: 650px;">
 Artık PV’lerimiz aynı havuzda. PV UUID’leri `vg_base` adlı VG’mizin VG UUID’sine işaret ediyor.
-<img src="/assets/images/lvm/havuz.png" alt="havuz" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/vguuid.png" alt="havuz" class="post-img post-img--left" style="max-width: 650px;">
 ## Hacim Grubu'ndan Mantıksal Hacim Oluşturma
 Bu aşamada `lvcreate` komutunu kullanarak `vg_base adlı` VG'mizden, üzerinde dosya sistemi oluşturabileceğimiz bir Mantıksal Hacim (LV) oluşturacağız.
 
@@ -181,7 +182,7 @@ Komut: `lvcreate -L 25G -n lv_data1 vg_base`
 Bu komutta istediğimiz miktarı `-L` ile byte cinsinden, `-l` ile yüzdelik veya blok cinsinden belirliyoruz. Genelde blok cinsinden belirtilmese de bilmekte fayda var. `-n` ile oluşturmak istediğimiz LV’nin adınıbelirledikten sonra bu hacmin hangi VG’den oluşturulacağını belirtiyoruz. 
 
 `lvdisplay` komutunu kullanarak oluşturduğumuz LV'yi inceleyebilirsiniz.
-<img src="/assets/images/lvm/lvdisplay.png" alt="lvdisplay" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/lvdisplay1.png" alt="lvdisplay" class="post-img post-img--left" style="max-width: 650px;">
 1: LV'ye erişim yolu (device path). Dosya sistemi ekledikten sonra LV’yi bu yolu kullanarak mount edeceğiz.
 
 2: LV’adı
@@ -217,7 +218,7 @@ Bu komutta istediğimiz miktarı `-L` ile byte cinsinden, `-l` ile yüzdelik vey
 `lvcreate -L 50GB -n lv_data2 vg_base`
 <img src="/assets/images/lvm/lvdata2.png" alt="lvdata2" class="post-img post-img--left" style="max-width: 650px;">
 `vgdisplay` komutu ile VG'mizin güncel halini inceleyelim.
-<img src="/assets/images/lvm/vgdisplay2.png" alt="vgdisplay2" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/vgd5.png" alt="vgdisplay2" class="post-img post-img--left" style="max-width: 650px;">
 1: VG’deki LV sayısı.
 
 2: LV’lerin kaç tanesinin açık/kullanımda olduğunu gösteriyor. Oluşturduğumuz LV’lere henüz bir dosya sistemi ekleyip mount etmediğimiz için şimdilik 0.
@@ -241,7 +242,7 @@ Yani LVM, önce bir PV’yi tamamen doldurup taşan kısmı başka bir PV’ye p
 Eğer 125 GB’lık bir LV oluşturmuş olsaydık bu boyutta bir PV olmadığı için LV aşağıda gördüğünüz gibi normal olarak parçalara ayrılacaktı.
 <img src="/assets/images/lvm/test.png" alt="test" class="post-img post-img--left" style="max-width: 650px;">
 Örnek olarak oluşturduğum bu LV’ye `lvdisplay` komutu ile bakalım.
-<img src="/assets/images/lvm/segment.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/vgs5.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;">
 1: Bu kısmı daha sonra açıklayacağımı söylemiştim. Segment alanı, LV’nin disk üzerinde hangi PV’lerde, hangi alanlarda durduğunu gösterir. Gördüğünüz gibi VG’mizdeki PV’lerin hiçbiri 125GB boyutunda olmadığı için, LV’miz 2 parçaya bölünmüş durumda. LV her zaman fiziksel olarak bitişik olmak zorunda değildir; bu şekilde parçalı da olabilir. Her bitişik parçaya segment diyoruz.Segment sayısı 1 ise LV tek parça halinde, bitişik alanda duruyor demek. Tercih edilen temiz yerleşim budur.
 
 Segment birden fazla ise LV farklı PV’lere yayılmış demek. PV boyutlarının yetersiz olduğu bu gibi durumlarda LV’ler doğal olarak parçalara (segment) bölünebilir. Ancak birazdan başka bir örnekte göstereceğim gibi, istenmeyen parçalı yerleşim, HDD kullanılan ortamlarda disk kafasını daha fazla hareket ettireceğinden tercih edilmez. 
@@ -269,7 +270,7 @@ LV’lerimizde dosya sistemi oluşturduktan sonra `blkid` komutuyla kontrol edel
 Komut 1: `blkid /dev/vg_base/lv_data1`
 
 Komut 2: `blkid /dev/vg_base/lv_data2`
-<img src="/assets/images/lvm/blkid.png" alt="blkid" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/blkid10.png" alt="blkid" class="post-img post-img--left" style="max-width: 650px;">
 Bağlama noktaları (mount points) oluşturalım.
 
 Komut 1: `mkdir /data1`
@@ -282,12 +283,12 @@ Komut 1: `mount /dev/vg_base/lv_data1 /data1`
 
 Komut 2: `mount /dev/vg_base/lv_data2 /data2`
 
-`lsblk` komutuyla kontrol edelim.
+Tekrak `lsblk` komutunu kullanarak UUID'leri öğrenelim.
 <img src="/assets/images/lvm/lsblk2.png" alt="lsblk2" class="post-img post-img--left" style="max-width: 650px;">
 Artık LV’ler kullanılmaya hazır. Bağlantı noktalarının kalıcı olması için LV UUID’lerini `/etc/fstab` dosyasına ekleyeceğiz. Tekrar `blkid` komutunu kullanrak LV’lerimizin UUID’sini öğrenelim.
-<img src="/assets/images/lvm/blkid2.png" alt="blkid2" class="post-img post-img--left" style="max-width: 750px;">
+<img src="/assets/images/lvm/blkid12.png" alt="blkid2" class="post-img post-img--left" style="max-width: 750px;">
 UUID’leri kopyalayın ve aşağıda gördüğünüz şekilde `/etc/fstab` dosyasının en altına ekleyin.
-<img src="/assets/images/lvm/etc.png" alt="etc" class="post-img post-img--left" style="max-width: 800px;">
+<img src="/assets/images/lvm/vimetc.png" alt="etc" class="post-img post-img--left" style="max-width: 800px;">
  Artık sistem her açıldığında LV’lerimiz otomatik olarak bu klasörlere bağlanacak.
 
 ## Disk Dolma Senaryosu: /data1
@@ -315,13 +316,57 @@ Bu yüzden bir LV’yi genişletirken üzerinde bulunduğu PV’den başka diskl
 `df -h /data1 /data2` komutu ile LV'lerimizin boyutunu kontrol edelim.
 <img src="/assets/images/lvm/dfh.png" alt="disktest" class="post-img post-img--left" style="max-width: 650px;">
 Fark ettiğiniz gibi, LV’ye 25 GB daha eklememize rağmen boyutu artmadı ve 50GB yerine hala 25GB olarak görünüyor.
-Bunun sebebi lvextend komutu sadece LV’yi büyütür, üzerindeki dosya sisteminin boyutunu değiştirmez. Bu yüzden lvextend komutunu kullandıktan sonra dosya sistemini de genişletmeniz gerekiyor. Bunun için kullanılan komutlar:
+Bunun sebebi lvextend komutu sadece LV’yi büyütür, üzerindeki dosya sisteminin boyutunu değiştirmez. Bu yüzden `lvextend` komutunu kullandıktan sonra dosya sistemini de genişletmeniz gerekiyor. Bu işlem için kullanılan komutlar:
 
-Komut 1: `xfs_growfs` XFS dosya sistemini genişletmek için.
-Komut 2: `resizefs` EXT4 dosya sistemini genişletmek için.
+XFS dosya sistemini genişletmek için: `xfs_growfs`
+
+EXT4 dosya sistemini genişletmek için: `resizefs`
 
 LV'mizin dosya sistemini genişletelim.
 
-`xfs_growfs /dev/vg_base/lv_data1`
+`resize2fs /dev/vg_base/lv_data1`
+<img src="/assets/images/lvm/resize.png" alt="resize" class="post-img post-img--left" style="max-width: 650px;">
+Tekrar `df -h /data1 /data2` komutunu kullanarak boyutu kontrol edelim.
+<img src="/assets/images/lvm/dfh10.png" alt="resize" class="post-img post-img--left" style="max-width: 650px;">
+Gördüğünüz gibi dosya sistemini genişlettikten sonra LV’mizin boyutu 50GB’a yükseldi. 
 
+## Disk Dolma Senaryosu: /data2
+Bu kısımda `/data1`'de yaptığımız gibi, `/data2`’nin de boş alanını dolduracağız. Bu defa `lv_data2` LV’sinin boyutunu 150GB olarak büyüterek disk dolma sorununu çözmek istiyoruz. Fakat VG’mizde yeterli yer yok. Bu yüzden sisteme yeni bir disk ekledik ve VG’nin boyutunu büyüteceğiz. LV’mizin boyutunu 150GB yapacağız ve son olarak dosya sistemini de genişleterek süreci tamamlayacağız.
+
+Önceki bölümlerden bildiğiniz komutları kullanacağız ve aynı aşamaları takip edeceğiz. Bu örneğin amacı VG’de boş alan kalmadığında LV’mizin boyutunu büyütme sürecini göstermek.
+
+Şimdi `cat /dev/zero > /data2/application_2.log` komutunu kullanarak boş alanı dolduralım.
+<img src="/assets/images/lvm/data2.png" alt="data2" class="post-img post-img--left" style="max-width: 650px;">
+`/data2`’nin bağlı olduğu `lv_data2`’nin boyutunu 150GB olarak genişletmek istiyoruz fakat VG’de sadece 50GiB yer kaldığını aşağıda görebilirsiniz.
+<img src="/assets/images/lvm/bospace.png" alt="bospace" class="post-img post-img--left" style="max-width: 650px;">
+Bu sorunu çözmek için sistemimize 150GB’lık `/dev/sdd` diskini ekledik ve `lsblk` komutu ile kontrolünü yapıyoruz.
+<img src="/assets/images/lvm/sdd3.png" alt="sdd3" class="post-img post-img--left" style="max-width: 650px;">
+`pvcreate` komutu ile diskimizi VG’de kullanmak için PV’ye çevirmeden önce, hatırlayacağınız gibi ilk önce bütün diski kaplayan bir bölüm (partition) oluşturuyoruz. Bu aşama önceki kısımlarda anlattığım süreçle aynı olduğu için disk bölümleme işlemini göstermeyeceğim. İsterseniz aşamaları "İçerik" panelinden “Disk Bölümleme” yazısına tıklayarak tekrar inceleyebilirsiniz.
+
+Aşağıda gördüğünüz gibi bütün diski kaplayan bir bölüm oluşturduk.
+<img src="/assets/images/lvm/butundisk.png" alt="sdd3" class="post-img post-img--left" style="max-width: 650px;">
+Şimdi bu bölümü PV’ye dönüştürelim.
+
+`pvcreate /dev/sdd1`
+<img src="/assets/images/lvm/devsdd.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+VG’mizin boyutunu vgextend komutu ile oluşturduğumuz PV’yi ekleyerek büyütüyoruz. Tekrar hatırlatmak için:
+
+Kullanım: `vgextend <vg_adı> <pv_path>`
+
+Komut: `vgextend vg_base /dev/sdd1`
+<img src="/assets/images/lvm/vgextenddd.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+`vgdisplay` komutu ile VG’mizin yeni boyutuna bakalım.
+<img src="/assets/images/lvm/yenispace.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+Yeni PV'mizi ekledikten sonra toplam alan 150 GiB’den 299.99 GiB’e yükseldi. Artık `lv_data2` LV’mizin boyutunu büyütmek için bu alanı kullanabiliriz.
+
+Komut: `lvextend -L 150G /dev/vg_base/lv_data2`
+<img src="/assets/images/lvm/logical.png" alt="devsdd" class="post-img post-img--left" style="max-width: 825px;">
+`lvextend` komutunu kullanıp LV’mizin boyutunu büyüttükten sonra dosya sistemini genişletmemiz gerekiyor demiştim. Önceki aşamadakullandığımız `resize2fs` komutunu kullanmamalıyız çünkü `lv_data2` XFS dosya sistemi kullanılıyor. Dosya sistemi tipini `blkid` ile öğrenebilirsiniz.
+<img src="/assets/images/lvm/blkidata2.png" alt="devsdd" class="post-img post-img--left" style="max-width: 825px;">
+Bu yüzden kullancağımız komut `xfs_growfs`
+
+`xfs_growfs /dev/vg_base/lv_data2`
+<img src="/assets/images/lvm/grow.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+XFS dosya sistemini genişlettik. Aşağıda `/data2`’nin boyutunun arttığını görebilirsiniz.
+<img src="/assets/images/lvm/xfsgroww.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">  
 
