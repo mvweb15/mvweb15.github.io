@@ -2,6 +2,9 @@
 <header class="hero hero--{{ include.size | default: 'small' }}" style="background-image: url('{{ include.cover | default: site.default_cover | relative_url }}');">
   {% if hero_title != empty %}
     <div class="hero__inner">
+      {% if include.logo %}
+        <img class="hero__logo" src="{{ include.logo | relative_url }}" alt="{{ site.title }}">
+      {% endif %}
       <h1 class="hero__title">{{ hero_title }}</h1>
       {% if include.subtitle %}
         <p class="hero__subtitle">{{ include.subtitle }}</p>
