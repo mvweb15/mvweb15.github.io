@@ -262,6 +262,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
+
 (function () {
   function setVH() {
     var vh = window.innerHeight * 0.01;
@@ -270,20 +271,8 @@ document.addEventListener("DOMContentLoaded", function () {
   setVH();
 
   var resizeTimer;
-  function debouncedSetVH() {
+  window.addEventListener("orientationchange", function () {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(setVH, 200);
-  }
-
-  window.addEventListener("orientationchange", debouncedSetVH);
-
-  if (window.visualViewport) {
-    var vvResizeTimer;
-    window.visualViewport.addEventListener("resize", function () {
-      clearTimeout(vvResizeTimer);
-      vvResizeTimer = setTimeout(setVH, 250);
-    });
-  } else {
-    window.addEventListener("resize", debouncedSetVH);
-  }
+    resizeTimer = setTimeout(setVH, 300);
+  });
 })();
