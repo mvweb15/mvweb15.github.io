@@ -131,11 +131,11 @@ img { max-width: 100%; display: block; }
   background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 100%);
 }
 
+
 .hero--full {
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100svh;
 }
-
 .hero--small { min-height: 42vh; }
 
 .hero__inner {
