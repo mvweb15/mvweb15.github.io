@@ -263,16 +263,3 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 
-(function () {
-  function setVH() {
-    var vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty("--vh", vh + "px");
-  }
-  setVH();
-
-  var resizeTimer;
-  window.addEventListener("orientationchange", function () {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(setVH, 300);
-  });
-})();
