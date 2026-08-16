@@ -404,7 +404,7 @@ html[data-theme="dark"] .theme-toggle__icon--sun { display: none; }
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #444, #222);
+  object-fit: cover;
   display: inline-block;
 }
 

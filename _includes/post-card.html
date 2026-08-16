@@ -5,7 +5,7 @@
     <a class="post-card__more" href="{{ include.post.url | relative_url }}">&raquo;</a>
   </p>
   <div class="post-card__meta">
-    <span class="post-card__avatar" aria-hidden="true"></span>
+    <img class="post-card__avatar" src="{{ '/assets/images/avatar.jpg' | relative_url }}" alt="{{ site.author }}">
     <span class="post-card__by">
       {{ site.author }} on
       {% if include.post.tags.first %}
