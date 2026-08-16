@@ -683,7 +683,11 @@ html[data-theme="dark"] .theme-toggle__icon--sun { display: none; }
 /* ---------- Responsive ---------- */
 @media (max-width: 600px) {
   .hero__title {
-    font-size: 2.2rem;
+    font-size: 1.7rem;
+  }
+
+  .hero__logo {
+    max-width: 170px;
   }
 
   .post-card__title { font-size: 1.5rem; }
