@@ -1,4 +1,11 @@
 <div class="nav-controls">
+  {% if page.layout == "post" %}
+  <button class="content-toggle" id="content-toggle" aria-label="İçeriği aç" aria-expanded="false" aria-controls="post-toc">
+    <svg class="content-toggle__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  </button>
+  {% endif %}
   <button class="theme-toggle" id="theme-toggle" aria-label="Açık/koyu tema değiştir">
     <svg class="theme-toggle__icon theme-toggle__icon--moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" fill="currentColor"/>
@@ -25,3 +32,4 @@
   <a class="site-nav__contact" href="{{ '/about/' | relative_url }}">İletişim</a>
 </nav>
 <div class="site-nav__overlay" id="site-nav-overlay"></div>
+<div class="post-toc__overlay" id="post-toc-overlay"></div>

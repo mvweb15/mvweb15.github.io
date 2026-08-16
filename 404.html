@@ -1,0 +1,12 @@
+---
+layout: default
+title: Sayfa Bulunamadı
+permalink: /404.html
+cover: /assets/images/cover-404.jpg
+---
+{% include hero.html size="small" title="404" subtitle="Aradığınız sayfa bulunamadı" cover=page.cover %}
+
+<div class="not-found">
+  <p class="not-found__text">Bu sayfa henüz mevcut değil ya da taşınmış olabilir.</p>
+  <a class="not-found__link" href="{{ '/' | relative_url }}">&larr; Anasayfaya dön</a>
+</div>
