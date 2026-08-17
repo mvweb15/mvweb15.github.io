@@ -45,14 +45,14 @@ VG: Hacim Grubu
 LV: Mantıksal Hacim
 
 ## LVM Konfigürasyon Senaryosu
-LVM’i ve yapısını açıkladığıma göre, konuyu daha iyi anlamanız için diagram ve animasyonlarla bir senaryo üzerinden LVM konfigürasyonu yapacağım. Senaryomuz şu şekilde:
+LVM’i ve yapısını açıkladığıma göre, konuyu daha iyi anlatabilmek için bir senaryo üzerinden LVM konfigürasyonu yapacağım. Senaryomuz şu şekilde:
 
 Sisteme yeni eklenen 50 GB ve 100GB  olmak üzere 2 adet disk bulunmakta. Daha önce anlattığım “log dosyalarının diski doldurması” sorununa çözüm olarak bu diskleri LVM ile yönetmeye karar veriyoruz.
-Bu diskleri ilk önce PV’ye dönüştürüp, sonrasında LVM’e dahil edeceğiz. Ardından bu PV’leri, VG dediğimiz ortak bir havuzda birleştireceğiz. Bu havuzdan 25GB ve 50GB olmak üzere 2 adet Mantıksal Hacim (LV) oluşturacak ve üzerlerine dosya sistemi kurarak /data1 ve /data2 konumlarına mount edeceğiz.
+Bu diskleri ilk önce PV’ye dönüştürüp, sonrasında LVM’e dahil edeceğiz. Ardından bu PV’leri, VG dediğimiz ortak bir havuzda birleştireceğiz. Bu havuzdan 25GB boyutunda `lv_data1` ve 50GB boyutunda `lv_data2` LV'lerini oluşturacak ve üzerlerine dosya sistemi kurarak `/data1` ve `/data2` konumlarına mount edeceğiz.
 
-Kurulumu tamamladıktan sonra, /data1 üzerinde log dosyasının diski doldurması senaryosunu tekrar simule edeceğiz. Çözüm olarak LV’nin ait olduğu VG’deki boş alanı kullanarak doğrudan LV’mizin boyutunu büyüteceğiz.
-Sonrasında /data2’nin de boş alanını dolduracağız. Bu LV’nin boyutunu 150GB olarak genişletmeyi istediğimizde VG’de boş alanın kalmadığını göreceğiz.
-Çözüm olarak önce 3. bir diski VG’ye ekleyip havuzu genişletecek ve sonrasında /data2'yi büyüteceğiz. Daha sonra LVM’in diğer özelliklerini göstereceğim.
+Kurulumu tamamladıktan sonra, `/data1` üzerinde log dosyasının diski doldurması senaryosunu tekrar simule edeceğiz. Çözüm olarak LV’nin ait olduğu VG’deki boş alanı kullanarak doğrudan LV’mizin boyutunu büyüteceğiz.
+Sonrasında `/data2`’nin de boş alanını dolduracağız. Bu LV’nin boyutunu 150GB olarak genişletmeyi istediğimizde VG’de boş alanın kalmadığını göreceğiz.
+Bu sorunu çözmek için 3. bir diski VG’ye ekleyip havuzu genişleteceğiz ve `/data2`'yi büyüteceğiz. Daha sonra `lv_data1` LV'sinin ait olduğu diskin bozulmaya başladığını varsayarak `lv_data1`'i başka bir diske aktaracağız. Bu işlemleri tamamladıktan sonra LVM’in diğer özelliklerini göstereceğim.
 ## Açıklamalı LVM Konfigürasyonu
 İlk olarak `lsblk` komutu ile yeni diskleri görelim.
 ![diskler](/assets/images/lvm/diskler.png)
@@ -370,3 +370,33 @@ Bu yüzden kullancağımız komut `xfs_growfs`
 XFS dosya sistemini genişlettik. Aşağıda `/data2`’nin boyutunun arttığını görebilirsiniz.
 <img src="/assets/images/lvm/xfsgroww.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">  
 
+## Disk Bozulma Senaryosu
+Şimdi `/data1`'e mount edilen `lv_data1` LV'sinin bulunduğu `/dev/sdb` diskinin bozulmaya başladığını varsayalım. Bu durumda akla ilk gelen çözüm, önerildiği gibi `/data1`'i read-only moduna geçirerek taşıma işlemini `mv` komutuyla başlatmak olabilir. Fakat bu yöntem bildiğiniz gibi kesintiye yol açar. Ayrıca `mv` gibi dosya sistemi seviyesinde çalışan komutlar taşıma sırasında elektrik kesintisi veya disk hatası gibi bir sorunla karşılaşırsa işlem yarıda kalır ve hangi dosyaların taşındığını, hangilerinin taşınmadığını elle kontrol etmeniz gerekir. Otomatik devam veya geri alma mekanizması yoktur. Bununla birlikte disk üzerinde birden fazla LV varsa `mv` komutu ile dosyaları taşımak diski VG'den çıkarmayacağından, diskteki diğer LV'ler hala o bozuk disk üzerinde kalmaya devam ederler.
+
+Bu nedenle bozulmaya başlayan diskimizi VG'den çıkarmadan önce LV ve verilerini güvenli bir şekilde taşımak için `pvmove` komutunu kullanacağız. `pvmove` komutu, `mv` aksine blok seviyesinde çalışır. Yani dosya sisteminin ne olduğuyla veya içindeki dosyalarla hiç ilgilenmez. LVM'in PE'lerini bir PV'den başka bir PV'ye taşır. Aslında yapılan işlem bir "dosya taşıma" değil, LV'nin fiziksel olarak nerede durduğunu değiştirme işlemidir. `pvmove`, kaynak ve hedef arasında geçici bir mirror (RAID gibi) oluşturarak segment şeklinde kopyalama yapar. Her segment tamamlandığında ilerleme VG metadata'sına checkpoint olarak yazılır. Bu işlem LV mount'luyken ve servisler çalışırken arka planda yürütülür. Yani veriyi taşımak için diski unmount etmenize ve kesinti yaşamanıza gerek kalmaz. İşlem sırasında sistem çökerse veya disk hata verirse, LVM bunu yarım kalmış `pvmove` olarak kaydeder ve komutu tekrar çalıştırdığınızda kaldığı yerden devam eder çünkü hangi PE'lerin taşınıp, hangilerinin taşınmadığı LVM tarafından bilinir. Bu sayede her şey korunur.Bu detayları açıkladığıma göre artık başlayabiliriz. 
+
+`/dev/sdb` diskinin bozulmaya başladığını fark ettik. Bu diskte `/dev/sdb1` adlı PV oluşturmuştuk. Yani `/dev/sdb1` PV'si üzerindek tüm LV'ler ve verileri risk altında. Bu yüzden yeni eklediğimiz `/dev/sdd` diskinden oluşturduğumuz `/dev/sdd1` PV'sine bu LV'leri güvenli bir şekilde taşımak istiyoruz. İlk olarak `/dev/ssd1`'de yeterli alanın olup olmadığını `pvs` komutu ile kontrol edelim.
+<img src="/assets/images/lvm/pvs2.png" alt="3disk" class="post-img post-img--left" style="max-width: 650px;">
+Gördüğünüz gibi `/dev/sdd1` PV'sinde yeterince yer var. Başlamadan önce hangi LV'lerin hangi PV'leri kullandığını `pvs --segments -o pv_name,pv_size,lv_name,seg_size --units -g` komutu ile görelim.
+<img src="/assets/images/lvm/pvsoption.png" alt="pvsoption" class="post-img post-img--left" style="max-width: 650px;">
+Önerilen yöntem olarak `vgcfgbackup vg_base` komutu ile VG'mizin LVM yapılandırma bilgisini yedekleyelim.
+<img src="/assets/images/lvm/vgbackup.png" alt="vgbackup" class="post-img post-img--left" style="max-width:5550px;">
+Şimdi `pvmove` komutunu kullanarak işleme başlayalım.
+
+Kullanım: `pvmove <kaynak_pv> <hedef_pv>`
+
+Komut: `pvmove /dev/sdb1 /dev/sdd1`
+<img src="/assets/images/lvm/pvmoved.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 650px;">
+Aktarma tamamlandıktan sonra tekrar `pvs --segments -o pv_name,pv_size,lv_name,seg_size --units -g` komutunu kullanarak güncel hale bakalım.
+<img src="/assets/images/lvm/pvsfinal.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 650px;">
+Gördüğünüz gibi artık `/dev/sdb1` PV'sini hiçbir LV kullanmıyor. `lv_data1` LV'si tamamen `/dev/sdd1` PV'sine taşınmış durumda.
+Aktarma işlemi tamamlandıktan sonra bozulmaya başlayan diskten oluşan `/dev/sdb1` PV'sini VG'den çıkarabilirz. Kullanacağımız komut `vgreduce`
+
+Kullanım: `vgreduce <vg_adı> <pv_adı>`
+
+Komut: `vgreduce vg_base /dev/sdb1`
+<img src="/assets/images/lvm/vgreduce.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 550px;">
+
+PV'mizi VG'den çıkardıktan sonra, diskimizi artık PV statüsünden çıkarabiliriz.
+<img src="/assets/images/lvm/pvremove2.png" alt="pvremve" class="post-img post-img--left" style="max-width: 650px;">
+Artık işlemimizi tamamladık ve gördüğünüz gibi diskimizi unmount etmeden veya read-only moduna geçirmeden canlı bir şekilde diskteki tüm LV'leri (Birden fazla LV'miz olsaydı aynı adımlar geçerli olurdu.) ve verilerini taşımayı göstermiş oldum. 
