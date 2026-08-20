@@ -368,8 +368,55 @@ Bu yüzden kullancağımız komut `xfs_growfs`
 `xfs_growfs /dev/vg_base/lv_data2`
 <img src="/assets/images/lvm/grow.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
 XFS dosya sistemini genişlettik. Aşağıda `/data2`’nin boyutunun arttığını görebilirsiniz.
-<img src="/assets/images/lvm/xfsgroww.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">  
-Buraya lvreduce disk boyutu küçültmeyi göster.
+<img src="/assets/images/lvm/xfsgroww.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;"> 
+Güncel durumumuz `lsblk` komutu ile bu şekilde görünüyor.150 GiB'a genişlettiğimiz `lv_data2` LV'sini tek bir PV karşılayamadığı için, bu LV `/dev/sdc1` ve `/dev/sdd1` PV'leri üzerine dağıtılmış (segmentlenmiş) durumda.
+<img src="/assets/images/lvm/sonlsblk.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+Standart `lsblk` veya `vgs` çıktısından `lv_data2` nin hangi PV'den ne kadar bir alan aldığını söylemek mümkün değil. Bunu öğrenmek için aşağıdaki komutu kullanabilirsiniz:
+
+Komut: `pvs -o lv_name,lv_size,pv_name,pv_size,seg_size --units g -S "lv_name=lv_data2"`
+<img src="/assets/images/lvm/uzunkomut.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+Kullandığımız komut çok pratik olmasa da çıktısı gayet anlaşılır.
+
+1: LV adı ve boyutu.
+
+2: Bu LV'nin üzerinde olduğu PV'ler ve boyutları.
+
+3: LV'nin bu PV'lerden aldığı toplam alan.
+
+Yani 150GiB'lık LV `lv_data2`, 100 GiB boyutundaki `/dev/sdc1`'den 100GiB'lık alanı, 150GiB boyutundaki `/dev/sdd1`'den 50GiB'lık alanı kullanıyor.
+
+## Mantıksal Hacim Boyutu Küçültme
+`lv_data1` LV'sinde 50GiB'lık alana artık ihtiyacımızın olmadığına karar veriyoruz. Bu yüzden LV'mizin boyutunu küçülterek VG'mizde başka LV'ler için yer açacağız. Başlamadan önce bilmeniz gereken iki önemli detay var. LVM'de LV boyutunu küçültmek, büyütmekten daha riskli bir işlem çünkü veri kaybı riski var. İlk önce dosya sistemi küçültülmeli, sonra LV küçültülmeli. Bu sırayı ters yaparsanız verileriniz kaybedersiniz. Diğer detay ise XFS dosya sisteminin hiçbir şekilde küçültülmeyi desteklememesi. XFS sadece büyütülebilir. XFS kullanıyorsanız LV'yi küçültmenin tek yolu istediğiniz boyutta yeni bir LV oluşturarak verilerinizi oraya taşımak. Bu yüzden EXT4 dosya sistemi kullandığımız `lv_data1`'i küçülteceğiz.
+
+İlk olarak `lv_data1`'i, unmount ederek başlayalım.
+
+Komut: `umount /dev/vg_base/lv_data1`
+
+Dosya sistemimizi kontrol edelim.
+
+Komut: `e2fsck -f /dev/vg_base/lv_data1`
+<img src="/assets/images/lvm/dosyasistemikontrol.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+
+Dosya sistemimizi küçültelim.
+
+Komut: `resize2fs/dev/vg/base_lv_data1 25G`
+<img src="/assets/images/lvm/resize2fs.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+
+Şimdi LV'mizi küçültebiliriz.
+
+Kullanım: `lvreduce -L <hedef_boyut> <lv_path>`
+
+Komut: `lvreduce -L 25G /dev/vg_base/lv_data1`
+<img src="/assets/images/lvm/lvreduce.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+
+Tekrar mount edelim ve kontrol edelim.
+
+Komut1: `mount /dev/vg_base/lv_data1 /data1`
+
+Komut2: `df -h | grep data1`
+<img src="/assets/images/lvm/remoun.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+Gördüğünüz gibi kısa ve basit bir işlem. Fakat sırayı karıştırmamaya dikkat edin yoksa verilerinizi kaybedebilirsiniz.
+
 
 ## Disk Bozulma Senaryosu
 Şimdi `/data1`'e mount edilen `lv_data1` LV'sinin bulunduğu `/dev/sdb` diskinin bozulmaya başladığını varsayalım. Bu durumda akla ilk gelen çözüm, önerildiği gibi `/data1`'i read-only moduna geçirerek taşıma işlemini `mv` komutuyla başlatmak olabilir. Fakat bu yöntem bildiğiniz gibi kesintiye yol açar. Ayrıca `mv` gibi dosya sistemi seviyesinde çalışan komutlar taşıma sırasında elektrik kesintisi veya disk hatası gibi bir sorunla karşılaşırsa işlem yarıda kalır ve hangi dosyaların taşındığını, hangilerinin taşınmadığını elle kontrol etmeniz gerekir. Otomatik devam veya geri alma mekanizması yoktur. Bununla birlikte disk üzerinde birden fazla LV varsa `mv` komutu ile dosyaları taşımak diski VG'den çıkarmayacağından, diskteki diğer LV'ler hala o bozuk disk üzerinde kalmaya devam ederler.
@@ -378,8 +425,8 @@ Bu nedenle bozulmaya başlayan diskimizi VG'den çıkarmadan önce LV ve veriler
 
 `/dev/sdb` diskinin bozulmaya başladığını fark ettik. Bu diskte `/dev/sdb1` adlı PV oluşturmuştuk. Yani `/dev/sdb1` PV'si üzerindek tüm LV'ler ve verileri risk altında. Bu yüzden yeni eklediğimiz `/dev/sdd` diskinden oluşturduğumuz `/dev/sdd1` PV'sine bu LV'leri güvenli bir şekilde taşımak istiyoruz. İlk olarak `/dev/ssd1`'de yeterli alanın olup olmadığını `pvs` komutu ile kontrol edelim.
 <img src="/assets/images/lvm/pvs2.png" alt="3disk" class="post-img post-img--left" style="max-width: 650px;">
-Gördüğünüz gibi `/dev/sdd1` PV'sinde yeterince yer var. Başlamadan önce hangi LV'lerin hangi PV'leri kullandığını `pvs --segments -o pv_name,pv_size,lv_name,seg_size --units -g` komutu ile görelim.
-<img src="/assets/images/lvm/pvsoption.png" alt="pvsoption" class="post-img post-img--left" style="max-width: 650px;">
+Gördüğünüz gibi `/dev/sdd1` PV'sinde yeterince yer var. Başlamadan önce dah sonra referans yapabilmemiz için hangi LV'lerin hangi PV'leri kullandığını `pvs --segments -o lv_name,seg_size,pv_name,pv_size --units g | awk 'NF==4'`, komutu ile görelim.
+<img src="/assets/images/lvm/pvsoption.png" alt="pvsoption" class="post-img post-img--left" style="max-width: 450px;">
 Önerilen yöntem olarak `vgcfgbackup vg_base` komutu ile VG'mizin LVM yapılandırma bilgisini yedekleyelim.
 <img src="/assets/images/lvm/vgbackup.png" alt="vgbackup" class="post-img post-img--left" style="max-width:5550px;">
 Şimdi `pvmove` komutunu kullanarak işleme başlayalım.
@@ -401,6 +448,7 @@ Komut: `vgreduce vg_base /dev/sdb1`
 PV'mizi VG'den çıkardıktan sonra, diskimizi artık PV statüsünden çıkarabiliriz.
 <img src="/assets/images/lvm/pvremove2.png" alt="pvremve" class="post-img post-img--left" style="max-width: 650px;">
 Artık işlemimizi tamamladık ve diskimizi *unmount* etmeden veya *read-only* moduna geçirmeden canlı bir şekilde diskteki tüm LV'leri (Birden fazla LV'miz olsaydı aynı adımlar geçerli olurdu.) ve verilerini taşıdık.
+
 ## LVM Striping
 LVM striping konusunu anlatmadan önce, LVM kullanarak RAID oluşturmaktan bahsetmeliyim. Fiziksel disklerinizi PV'ye dönüştürdükten sonra LVM'in RAID özelliğini kullanarak PV'lerinizden 0,1,4,5,6 ve 10 seviyelerinde RAID oluşturabilirsiniz. Fakat yaygın pratikte önce RAID oluşturmak, ardından bu RAID cihazını LVM'e PV olarak eklemek tavsiye ediliyor. Yani disk arıza yönetimi ve yedeklilik takibini LVM ile yönetmek yerine, sadece bu iş için tasarlanmış `mdadm` komutunu kullanarak RAID oluşturmak daha doğru bir yaklaşım. Böylece RAID yönetimi `mdadm`, hacim yönetimi ise LVM tarafından yönetiliyor.
 

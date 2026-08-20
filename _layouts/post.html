@@ -2,10 +2,8 @@
 layout: default
 ---
 {% include hero.html size="small" cover=page.cover %}
-
 <div class="post-layout">
   <div class="post-spacer" aria-hidden="true"></div>
-
   <article class="post">
     <div class="post__header">
       <h1 class="post__title">{{ page.title }}</h1>
@@ -18,13 +16,10 @@ layout: default
         {% endif %}
       </div>
     </div>
-
     <div class="post__content" id="post-content">
       {{ content }}
     </div>
-
   </article>
-
   <aside class="post-toc" id="post-toc">
     <button class="post-toc__close" id="post-toc-close" aria-label="İçeriği kapat">&times;</button>
     <span class="post-toc__title">İçerik</span>

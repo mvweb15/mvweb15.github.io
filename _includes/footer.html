@@ -1,3 +1,17 @@
 <footer class="site-footer">
-  <span class="site-footer__copy">&copy; {{ 'now' | date: "%Y" }} {{ site.author }}</span>
+  <span class="site-footer__copy">
+    &copy; {{ 'now' | date: "%Y" }} {{ site.author }}.
+    <span class="tooltip-trigger">
+      Some rights reserved.
+      <span class="tooltip-box">
+        Except where otherwise noted, the blog posts on this site are licensed under the
+        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">Creative Commons Attribution 4.0 International (CC BY 4.0) License</a> by the author.
+      </span>
+    </span>
+  </span>
+  {% if page.layout == "post" %}
+  <span class="site-footer__license">
+    This post is licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener"><strong>CC BY 4.0</strong></a> by the author.
+  </span>
+  {% endif %}
 </footer>

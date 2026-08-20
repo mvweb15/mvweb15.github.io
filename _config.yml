@@ -1,29 +1,24 @@
 title: mvtechblog
 description: ""
 author: Mevlut Bulut
-url: ""
+url: "https://www.mvtechblog.com"
 baseurl: ""
-
 # Varsayılan hero görseli (post/sayfa kendi 'cover' değerini vermezse bu kullanılır)
 default_cover: /assets/images/cover-default.jpg
-
 markdown: kramdown
 permalink: /:title/
-
 paginate: 5
 paginate_path: "/page/:num/"
-
 plugins:
   - jekyll-paginate
   - jekyll-archives
-
+  - jekyll-sitemap
 jekyll-archives:
   enabled:
     - tags
   layout: tag
   permalinks:
     tag: "/tag/:name/"
-
 defaults:
   - scope:
       path: ""
@@ -35,13 +30,11 @@ defaults:
       type: "pages"
     values:
       layout: "page"
-
 exclude:
   - Gemfile
   - Gemfile.lock
   - README.md
   - vendor
-
 kramdown:
   auto_ids: true
   hard_wrap: false
