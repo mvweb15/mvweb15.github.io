@@ -60,7 +60,7 @@ Bu sorunu çözmek için 3. bir diski VG’ye ekleyip havuzu genişleteceğiz ve
 Fiziksel Diskleri, PV’ye dönüştürmeden önce şundan bahsetmeliyim. Fiziksel diskleri bölümlemeden (partition) direkt LVM’e eklemek mümkün. Diğer şekilde Fiziksel diskleri bölümyelip, bu bölümlerden PV oluşturarak LVM’e eklemeniz de mümkün. Fakat Red Hat dokümantasyon sitesinde yazdığına göre genellikle bütün bir diski kaplayan tek bir disk bölümü oluşturup, bu bölümü Linux LVM olarak  işaretlemek ve sonrasına PV’ye dönüştürmek tavsiye ediliyor. Bu yüzden diskleri doğrudan kullanmak yerine Red Hat önerilerine bağlı kalacağım. Bu detayı açıkladığıma göre devam edebiliriz.
 
 ## Disk Bölümleme
-Yapacağımız işlemi aşağıda görebilirsiniz. Her bölümün başında takibi ve anlatımı kolaylaştırması için bu kısa animasyonları ekleyeceğim. 
+Yapacağımız işlemi aşağıda görebilirsiniz. Her bölümün başında takibi ve anlatımı kolaylaştırması için bu diagramları ekleyeceğim. 
 <img src="/assets/images/lvm/diskpartition1.png" alt="fdisk" class="post-img post-img--left" style="max-width: 650px;">
 İlk olarak `fdisk` komutu ile yeni eklenen diskleri tek bir bölüm (partition) olacak şekilde bölümleyeceğiz ve Linux LVM olarak işaretleyeceğiz.
 `fdisk /dev/sdb` komutunu çalıştırıp `n` yazın ve yeni bir partition oluşturma işlemine başlayın.
@@ -173,7 +173,7 @@ Kullanım: `vgextend <vg_adı> <pv_adı>`
 Komut: `vgextend vg_base /dev/sdc1`
 <img src="/assets/images/lvm/vgextend.png" alt="vgextend" class="post-img post-img--left" style="max-width: 650px;">
 Tekrar `vgdisplay` komutunu kullanarak VG’nin boyutunun arttığını görebiliriz. `Cur PV` ve `Act PV` sayısı ikiye yükseldi.
-<img src="/assets/images/lvm/okey.png" alt="volume" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/curpvnew.png" alt="volume" class="post-img post-img--left" style="max-width: 650px;">
 Artık PV’lerimiz aynı havuzda. PV UUID’leri `vg_base` adlı VG’mizin VG UUID’sine işaret ediyor.
 <img src="/assets/images/lvm/vguuid.png" alt="havuz" class="post-img post-img--left" style="max-width: 650px;">
 ## Hacim Grubu'ndan Mantıksal Hacim Oluşturma
@@ -223,7 +223,7 @@ Bu komutta istediğimiz miktarı `-L` ile byte cinsinden, `-l` ile yüzdelik vey
 `lvcreate -L 50GB -n lv_data2 vg_base`
 <img src="/assets/images/lvm/lvdata2.png" alt="lvdata2" class="post-img post-img--left" style="max-width: 650px;">
 `vgdisplay` komutu ile VG'mizin güncel halini inceleyelim.
-<img src="/assets/images/lvm/vgd5.png" alt="vgdisplay2" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/vgdnew.png" alt="vgdisplay2" class="post-img post-img--left" style="max-width: 650px;">
 1: VG’deki LV sayısı.
 
 2: LV’lerin kaç tanesinin açık/kullanımda olduğunu gösteriyor. Oluşturduğumuz LV’lere henüz bir dosya sistemi ekleyip mount etmediğimiz için şimdilik 0.
@@ -247,7 +247,7 @@ Yani LVM, önce bir PV’yi tamamen doldurup taşan kısmı başka bir PV’ye p
 Eğer 125 GB’lık bir LV oluşturmuş olsaydık bu boyutta bir PV olmadığı için LV aşağıda gördüğünüz gibi normal olarak parçalara ayrılacaktı.
 <img src="/assets/images/lvm/test.png" alt="test" class="post-img post-img--left" style="max-width: 650px;">
 Örnek olarak oluşturduğum bu LV’ye `lvdisplay` komutu ile bakalım.
-<img src="/assets/images/lvm/vgs5.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/segmentsnew.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;">
 1: Bu kısmı daha sonra açıklayacağımı söylemiştim. `Segments` alanı, LV’nin disk üzerinde hangi PV’lerde, hangi alanlarda durduğunu gösterir. Gördüğünüz gibi VG’mizdeki PV’lerin hiçbiri 125GB boyutunda olmadığı için, LV’miz 2 parçaya bölünmüş durumda. LV her zaman fiziksel olarak bitişik olmak zorunda değildir; bu şekilde parçalı da olabilir. Her bitişik parçaya *segment* diyoruz.*Segment* sayısı 1 ise LV tek parça halinde, bitişik alanda duruyor demek. Tercih edilen temiz yerleşim budur.
 
 *Segment* birden fazla ise LV farklı PV’lere yayılmış demek. PV boyutlarının yetersiz olduğu bu gibi durumlarda LV’ler doğal olarak parçalara (*segment*) bölünebilir. Ancak birazdan başka bir örnekte göstereceğim gibi, istenmeyen parçalı yerleşim, HDD kullanılan ortamlarda disk kafasını daha fazla hareket ettireceğinden tercih edilmez. 
@@ -373,7 +373,7 @@ Komut: `lvextend -L 150G /dev/vg_base/lv_data2`
 Bu yüzden kullancağımız komut `xfs_growfs`
 
 `xfs_growfs /dev/vg_base/lv_data2`
-<img src="/assets/images/lvm/grow.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/grownew1.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
 XFS dosya sistemini genişlettik. Aşağıda `/data2`’nin boyutunun arttığını görebilirsiniz.
 <img src="/assets/images/lvm/xfsgroww.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;"> 
 Güncel durumumuz `lsblk` komutu ile bu şekilde görünüyor.150 GiB'a genişlettiğimiz `lv_data2` LV'sini tek bir PV karşılayamadığı için, bu LV `/dev/sdc1` ve `/dev/sdd1` PV'leri üzerine dağıtılmış (segmentlenmiş) durumda.
@@ -381,7 +381,7 @@ Güncel durumumuz `lsblk` komutu ile bu şekilde görünüyor.150 GiB'a genişle
 Standart `lsblk` veya `vgs` çıktısından `lv_data2` nin hangi PV'den ne kadar bir alan aldığını söylemek mümkün değil. Bunu öğrenmek için aşağıdaki komutu kullanabilirsiniz:
 
 Komut: `pvs -o lv_name,lv_size,pv_name,pv_size,seg_size --units g -S "lv_name=lv_data2"`
-<img src="/assets/images/lvm/uzunkomut.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/longcommandnew.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
 Kullandığımız komut çok pratik olmasa da çıktısı gayet anlaşılır.
 
 1: LV adı ve boyutu.
@@ -496,7 +496,7 @@ Komut: `lvcreate --type raid0 -i 2 -I 64 -l 100%FREE -n lv_stripe vg_stripe`
 `vg_stripe`: LV'nin oluşturulacağı kaynak VG.
 
 LV'mizi oluşturduktan sonra `lsblk /dev/sde /dev/sdf` komutu ile `lv_stripe`'i inceleyelim.
-<img src="/assets/images/lvm/lvstripe.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
+<img src="/assets/images/lvm/lvmstripenew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
 100GiB boyutunda `lv_stripe` adlı LV'miz RAID 0 yapılandırılmasıyla 2 fiziksel disk üzerine dağılmış durumda. Yukarı gördüğünüz `rimage_0` ve `rimage_1`, LVM RAID'in her stripe/disk için oluşturduğu alt-LV bileşenleridir. Doğrudan müdahele gerektiren bir şey değil yani detaylarına ihtiyacımız yok.
 
 `lv_stripe` üzerinde bir dosya sistemi oluşturalım.
@@ -520,9 +520,9 @@ Bu noktada belirtmem gereken önemli bir nokta var. Bu işlemi benim yaptığım
 VM kullanmadığımız bir durumda `fio` testinin sonucunda iki LV arasındaki fark bu şekilde olurdu:
 
 `lv_data1` yazma hızı.
-<img src="/assets/images/lvm/readwritenormal.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;"> 
+<img src="/assets/images/lvm/readwritenormalnew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;"> 
 `lv_stripe`yazma hızı.
-<img src="/assets/images/lvm/readwritestripe.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
-Gördüğünüz üzere LVM RAID 0 ile yapılandırılmış LV'de okuma/yazma hızı ortalama olarak 2 katına çıkıyor. Unutmayın ki RAID 0 yedeklilik sağlamıyor. Bu yüzden yedeklilik gerektiren durumlarda RAID 1,2,4,6 ve 10 seviyelerinden birini kullanmalısınız. Tahmin edebileceğiniz üzere tüm RAID seviyelerini anlatmam bu yazıyı fazlasıyla uzatacağından, LVM'in RAID desteğini sadece striping yapılandırması ile göstermek istedim. Diğer seviyelerin detayları için kaynaklar bölümüne bakabilirsiniz.
+<img src="/assets/images/lvm/readwritestripenew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
+Gördüğünüz üzere LVM RAID 0 ile yapılandırılmış LV'de yazma hızı ortalama olarak 2 katına çıkıyor. Unutmayın ki RAID 0 yedeklilik sağlamıyor. Bu yüzden yedeklilik gerektiren durumlarda RAID 1,2,4,6 ve 10 seviyelerinden birini kullanmalısınız. Tahmin edebileceğiniz üzere tüm RAID seviyelerini anlatmam bu yazıyı fazlasıyla uzatacağından, LVM'in RAID desteğini sadece striping yapılandırması ile göstermek istedim. Diğer seviyelerin detayları için kaynaklar bölümüne bakabilirsiniz.
 
 
