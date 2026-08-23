@@ -29,7 +29,7 @@ Resmi Red Hat dokümantasyon sitesinde yazıldığı şekilde, LVM fiziksel depo
 
 ## LVM'in Bileşenleri
 Teknik tanımda da yazdığı gibi LVM fiziksel depolama üzerinde bir soyutlama katmanı oluşturur. Bu katman aşağıda gördüğünüz üzere 3 bileşenden oluşur.
-<img src="/assets/images/lvm/lvmdiagramupdate.png" alt="lvmbilesen" class="post-img" style="max-width: 350px;">
+<img src="/assets/images/lvm/lvmdiagramupdate1.png" alt="lvmbilesen" class="post-img" style="max-width: 350px;">
 ## Fiziksel Hacim (Physical Volumes)
 LVM yapısının en alt katmanını oluşturur. Bir disk, disk bölümü (partition) veya RAID dizisi gibi fiziksel bir depolama biriminin, LVM tarafından kullanılabilir hale getirilmesiyle oluşur. Bir fiziksel diskin LVM tarafından yönetilebilmesi için önce Fiziksel Hacim'e dönüştürülmesi gerekir.
 ## Hacim Grubu (Volume Group)
@@ -61,7 +61,7 @@ Fiziksel Diskleri, PV’ye dönüştürmeden önce şundan bahsetmeliyim. Fiziks
 
 ## Disk Bölümleme
 Yapacağımız işlemi aşağıda görebilirsiniz. Her bölümün başında takibi ve anlatımı kolaylaştırması için bu kısa animasyonları ekleyeceğim. 
-<img src="/assets/images/lvm/diskpartition.png" alt="fdisk" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/diskpartition1.png" alt="fdisk" class="post-img post-img--left" style="max-width: 650px;">
 İlk olarak `fdisk` komutu ile yeni eklenen diskleri tek bir bölüm (partition) olacak şekilde bölümleyeceğiz ve Linux LVM olarak işaretleyeceğiz.
 `fdisk /dev/sdb` komutunu çalıştırıp `n` yazın ve yeni bir partition oluşturma işlemine başlayın.
 
@@ -79,11 +79,11 @@ Bu işlemin aynısını `/dev/sdc` için tekrar edin. Diskler bu şekilde görü
 <img src="/assets/images/lvm/diskler2.png" alt="diskler2" class="post-img post-img--left" style="max-width: 650px;">
 
 ## Fiziksel Disk bölümlerini Fiziksel Hacim'e Dönüştürme
-<img src="/assets/images/lvm/pvcreatefrom.png" alt="pvcreate1" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/pvcreatefrom1.png" alt="pvcreate1" class="post-img post-img--left" style="max-width: 650px;">
 Fiziksel Hacim (PV) oluşturmak için  `pvcreate` komutunu kullanıyoruz. Bölümü LVM'de kullanmak üzere PV'ye dönüştürmek için `pvcreate /dev/sdb1` komutunu çalıştırın.
 <img src="/assets/images/lvm/pvcreate1.png" alt="pvcreate1" class="post-img post-img--left" style="max-width: 650px;">
 Oluşturduğumuz PV'nin detaylarını görmek için `pvdisplay` komutunu kullanın.
-<img src="/assets/images/lvm/sonpv.png" alt="pvdisplay" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/pvnew1.png" alt="pvdisplay" class="post-img post-img--left" style="max-width: 650px;">
 1: PV’nin adı oluşturduğumuz Fiziksel diskin adı olan `/dev/sdb1`.
 
 2: `VG Name` boş çünkü henüz bu Fiziksel Hacmi bir Hacim Grubu’na eklemedik.
@@ -105,7 +105,7 @@ Oluşturduğumuz PV’leri özet halinde görmek için `pvs` komutunu kullanın.
 Artık disklerimiz LVM tarafından kullanılmaya ve VG oluşturmaya hazır. 
 
 ## Fiziksel Hacimlerden Hacim Grubu Oluşturma
-{% include video-loop.html src="/assets/videos/lvm/vgcreate.mp4" class="video-loop--medium" %}
+{% include video-loop.html src="/assets/videos/lvm/vgcreate2.mp4" class="video-loop--medium" %}
 Şimdi oluşturduğumuz bir PV ile `vgcreate` komutunu kullanarak VG oluşturacağız. Sonrasına bu havuza diğer PV’leri ekleyeceğiz.
 
 Kullanım: `vgcreate <vg_adi> <pv_yolu>`
@@ -113,7 +113,7 @@ Kullanım: `vgcreate <vg_adi> <pv_yolu>`
 Komut: `vgcreate vg_base /dev/sdb1`
 <img src="/assets/images/lvm/vgcreate.png" alt="vgcreate" class="post-img post-img--left" style="max-width: 650px;">
 VG’yi incelemeye başlamadan önce az oluşturduğumuz `/dev/sdb1` PV'sinin detaylarına tekrardan bakalım.
-<img src="/assets/images/lvm/sdbbb.png" alt="display" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/pvnew2.png" alt="display" class="post-img post-img--left" style="max-width: 650px;">
 1: PV, artık bir VG’ye dahil olduğu için tahsis edilebilir durumda.
 
 2: Daha önce açıkladığım üzere PV, VG’ye dahil edildikten sonra 4 MiB’lik bloklara bölünmüş.
@@ -123,9 +123,9 @@ VG’yi incelemeye başlamadan önce az oluşturduğumuz `/dev/sdb1` PV'sinin de
 4: Bu diskten henüz bir alan tahsis edilmemiş.
 
 İki PV’mizi karşılaştırarak farkı daha iyi görebiliriz.
-<img src="/assets/images/lvm/vgeklenmis.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/vgeklenmis2.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
 Gördüğünüz gibi `/dev/sdb1` PV’si, VG’ye eklendikten sonra 12799 adet 4.00 MiB boyutunda bloklara bölünmüş. PV `/dev/sdc1` ise henüz bir VG’ye eklenmediği için bloklara bölünmemiş. Şimdi `vgdisplay` komutu ile oluşturduğumuz VG’yi inceleyelim.
-<img src="/assets/images/lvm/vgdisplay10.png" alt="vg" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/vgdisplaynew.png" alt="vg" class="post-img post-img--left" style="max-width: 650px;">
 1: VG’nin adı.
 
 2: Grubun ait olduğu sistem kimliği. Genelde küme (cluster) ortamlarında kullanılır o yüzden boş.
@@ -187,7 +187,7 @@ Komut: `lvcreate -L 25G -n lv_data1 vg_base`
 Bu komutta istediğimiz miktarı `-L` ile byte cinsinden, `-l` ile yüzdelik veya blok cinsinden belirliyoruz. Genelde blok cinsinden belirtilmese de bilmekte fayda var. `-n` ile oluşturmak istediğimiz LV’nin adınıbelirledikten sonra bu hacmin hangi VG’den oluşturulacağını belirtiyoruz. 
 
 `lvdisplay` komutunu kullanarak oluşturduğumuz LV'yi inceleyebilirsiniz.
-<img src="/assets/images/lvm/lvdisplay1.png" alt="lvdisplay" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/lvdisplaynew.png" alt="lvdisplay" class="post-img post-img--left" style="max-width: 650px;">
 1: LV'ye erişim yolu (device path). Dosya sistemi ekledikten sonra LV’yi bu yolu kullanarak mount edeceğiz.
 
 2: LV’adı
@@ -214,7 +214,7 @@ Bu komutta istediğimiz miktarı `-L` ile byte cinsinden, `-l` ile yüzdelik vey
 
 13: Okuma öncesi (read-ahead) ayarı otomatik belirleniyor.
 
-14: Otomaik ayarın şu anki gerçek "read-ahead" değeri, 256 sektör. Önemli bir detay değil.
+14: Otomatik ayarın şu anki gerçek "read-ahead" değeri, 256 sektör. Önemli bir detay değil.
 
 15: Kernel içindeki major:minor numarasını gösteriyor. Kernel seviyesinde çalışma zamanında atanan kimlik.
 
@@ -296,7 +296,7 @@ Artık LV’ler kullanılmaya hazır. Bağlantı noktalarının kalıcı olması
 UUID’leri kopyalayın ve aşağıda gördüğünüz şekilde `/etc/fstab` dosyasının en altına ekleyin.
 <img src="/assets/images/lvm/vimetc.png" alt="etc" class="post-img post-img--left" style="max-width: 800px;">
  Artıksistem her açıldığında LV’lerimiz otomatik olarak bu klasörlere bağlanacak. LVM sürecini tamamladığımıza göre diğer senaryolara geçmeden önce aşağıda yaptığımız tüm işlemleri görebilirsiniz.
-{% include video-loop.html src="/assets/videos/lvm/fulldiagram.mp4" class="video-loop--medium" %}
+{% include video-loop.html src="/assets/videos/lvm/fulldiagram2.mp4" class="video-loop--medium" %}
 
 ## Disk Dolma Senaryosu: /data1
 Şimdi /data1 üzerinde log dosyalarının diski doldurma senaryosunu tekrar simule edeceğiz. Bu test için kullanacağımız komut:
