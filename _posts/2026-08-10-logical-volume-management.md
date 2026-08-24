@@ -25,7 +25,7 @@ Aşağıdaki diagramda LVM’siz bir sistemi ve `watch df -h` komutu ile yaptı�
 Bu durumda tabii ki log dosyalarını başka bir diske taşımayı veya silmeyi tercih edebilirsiniz. Fakat bu süreç tahmin edebileceğiniz gibi disk sayısı arttıkça zorlaşır. Bu durumda LVM kullanarak dosya sisteminizi genişletebilirdiniz veya farklı şekillerde bu sorunu çözebilirdiniz. Fakat yukarıda gördüğünüz sistemde LVM kullanılmadığı için, dosya sisteminizi genişletemezsiniz. Şimdi bu sorunu çözen ve bir çok avantaj sağlayan LVM’i açıklayıp nasıl kullanacağımızı anlatacağım.
 
 ## LVM nedir ?
-Resmi Red Hat dokümantasyon sitesinde yazıldığı şekilde, LVM fiziksel depolama üzerinde bir soyutlama katmanı oluşturarak mantıksal depolama birimleri (logical volume) oluşturmanızı sağlar. Bu, fiziksel depolamayı doğrudan kullanmaya kıyasla birçok açıdan çok daha fazla esneklik sunar. Bir logical volume ile, fiziksel disk boyutlarıyla sınırlı kalmazsınız. Ayrıca, donanım depolama yapılandırması yazılımdan gizlenir, böylece uygulamalar durdurulmadan veya dosya sistemleri unmount edilmeden yeniden boyutlandırılabilir ve taşınabilir. Bu da operasyonel maliyetleri azaltabilir. LVM ayrıca anlık görüntü alma (snapshot), şeritleme (striping) ve yansılama (mirroring) gibi gelişmiş özellikler de sunar.
+Resmi Red Hat dokümantasyon sitesinde yazıldığı şekilde[^1], LVM fiziksel depolama üzerinde bir soyutlama katmanı oluşturarak mantıksal depolama birimleri (logical volume) oluşturmanızı sağlar. Bu, fiziksel depolamayı doğrudan kullanmaya kıyasla birçok açıdan çok daha fazla esneklik sunar. Bir logical volume ile, fiziksel disk boyutlarıyla sınırlı kalmazsınız. Ayrıca, donanım depolama yapılandırması yazılımdan gizlenir, böylece uygulamalar durdurulmadan veya dosya sistemleri unmount edilmeden yeniden boyutlandırılabilir ve taşınabilir. Bu da operasyonel maliyetleri azaltabilir.
 
 ## LVM'in Bileşenleri
 Teknik tanımda da yazdığı gibi LVM fiziksel depolama üzerinde bir soyutlama katmanı oluşturur. Bu katman aşağıda gördüğünüz üzere 3 bileşenden oluşur.
@@ -88,7 +88,7 @@ Oluşturduğumuz PV'nin detaylarını görmek için `pvdisplay` komutunu kullan�
 
 2: `VG Name` boş çünkü henüz bu Fiziksel Hacmi bir Hacim Grubu’na eklemedik.
 
-3: `PV Size 50 GiB` Fiziksel Hacmin boyutunu belirtiyor. Buradaki `GiB` ile `GB`’ı karıştırmayın. Aralarındaki farka kaynaklar kısmından ulaşabilirsiniz.
+3: `PV Size 50 GiB` Fiziksel Hacmin boyutunu belirtiyor. Buradaki `GiB` ile `GB`’ı karıştırmayın. Aralarındaki farka kaynaklar[^2] kısmından ulaşabilirsiniz.
 
 4: `Allocatable NO` çünkü Fiziksel Hacim henüz bir Hacim Grubu’na eklemedik.
 
@@ -132,7 +132,7 @@ Gördüğünüz gibi `/dev/sdb1` PV’si, VG’ye eklendikten sonra 12799 adet 4
 
 3: Standart LVM sürümü.
 
-4: Bir VG’nin yapılandırma bilgileri metadata olarak adlandırılır.Bu metadata, LVM’deki hangi LV’nin ne kadar büyüklükte olduğu, hangi PE’lerin nerede tutulduğu, UUID’ler, isimler gibi genel yapılandırma bilgilerini bulunduruyor. Varsayılan olarak metadata, VG içerisinde bulunan tüm PV’lerin kendi metadata alanlarına kopyalanarak saklanır. Bu konu hakkında ihtiyacımız dışında fazla detaya girmek istemiyorum. Detaylarına kaynaklar kısmından bakabilirsiniz. 
+4: Bir VG’nin yapılandırma bilgileri metadata olarak adlandırılır.Bu metadata, LVM’deki hangi LV’nin ne kadar büyüklükte olduğu, hangi PE’lerin nerede tutulduğu, UUID’ler, isimler gibi genel yapılandırma bilgilerini bulunduruyor. Varsayılan olarak metadata, VG içerisinde bulunan tüm PV’lerin kendi metadata[^3] alanlarına kopyalanarak saklanır. Bu konu hakkında ihtiyacımız dışında fazla detaya girmek istemiyorum. Detaylarına kaynaklar kısmından bakabilirsiniz. 
 
 5:VG’de her işlem yapıldığında 1 artan revizyon numarası. 
 
@@ -295,7 +295,7 @@ Artık LV’ler kullanılmaya hazır. Bağlantı noktalarının kalıcı olması
 <img src="/assets/images/lvm/blkid12.png" alt="blkid2" class="post-img post-img--left" style="max-width: 750px;">
 UUID’leri kopyalayın ve aşağıda gördüğünüz şekilde `/etc/fstab` dosyasının en altına ekleyin.
 <img src="/assets/images/lvm/vimetc.png" alt="etc" class="post-img post-img--left" style="max-width: 800px;">
- Artıksistem her açıldığında LV’lerimiz otomatik olarak bu klasörlere bağlanacak. LVM sürecini tamamladığımıza göre diğer senaryolara geçmeden önce aşağıda yaptığımız tüm işlemleri görebilirsiniz.
+ Artık sistem her açıldığında LV’lerimiz otomatik olarak bu klasörlere bağlanacak. LVM sürecini tamamladığımıza göre diğer senaryolara geçmeden önce aşağıda yaptığımız tüm işlemleri görebilirsiniz.
 {% include video-loop.html src="/assets/videos/lvm/fulldiagram2.mp4" class="video-loop--medium" %}
 
 ## Disk Dolma Senaryosu: /data1
@@ -456,7 +456,7 @@ PV'mizi VG'den çıkardıktan sonra, diskimizi artık PV statüsünden çıkarab
 Artık işlemimizi tamamladık ve diskimizi unmount etmeden veya read-only moduna geçirmeden canlı bir şekilde diskteki tüm LV'leri (Birden fazla LV'miz olsaydı aynı adımlar geçerli olurdu.) ve verilerini taşıdık.
 
 ## LVM Striping
-LVM striping konusunu anlatmadan önce, LVM kullanarak RAID oluşturmaktan bahsetmeliyim. Fiziksel disklerinizi PV'ye dönüştürdükten sonra LVM'in RAID özelliğini kullanarak PV'lerinizden 0,1,4,5,6 ve 10 seviyelerinde RAID oluşturabilirsiniz. Fakat yaygın pratikte önce RAID oluşturmak, ardından bu RAID cihazını LVM'e PV olarak eklemek tavsiye ediliyor. Yani disk arıza yönetimi ve yedeklilik takibini LVM ile yönetmek yerine, sadece bu iş için tasarlanmış `mdadm` komutunu kullanarak RAID oluşturmak daha doğru bir yaklaşım. Böylece RAID yönetimi `mdadm`, hacim yönetimi ise LVM tarafından yönetiliyor.
+LVM striping konusunu anlatmadan önce, LVM kullanarak RAID oluşturmaktan bahsetmeliyim. Fiziksel disklerinizi PV'ye dönüştürdükten sonra LVM'in RAID özelliğini kullanarak PV'lerinizden 0,1,4,5,6 ve 10 seviyelerinde RAID oluşturabilirsiniz [^4]. Fakat yaygın pratikte önce RAID oluşturmak, ardından bu RAID cihazını LVM'e PV olarak eklemek tavsiye ediliyor. Yani disk arıza yönetimi ve yedeklilik takibini LVM ile yönetmek yerine, sadece bu iş için tasarlanmış `mdadm` komutunu kullanarak RAID oluşturmak daha doğru bir yaklaşım. Böylece RAID yönetimi `mdadm`, hacim yönetimi ise LVM tarafından yönetiliyor.
 
 Bu nedenle bu bölümde LVM'in RAID özelliklerini kapsamlı bir şekilde ele almak yerine, RAID'in yedekleme sağlamayan ve LVM'de en çok tercih edilen kullanım senaryosuna odaklanacağız. Disk performansını arttırmaya yarayan RAID 0 (striping) yöntemi.
 
@@ -525,4 +525,103 @@ VM kullanmadığımız bir durumda `fio` testinin sonucunda iki LV arasındaki f
 <img src="/assets/images/lvm/readwritestripenew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
 Gördüğünüz üzere LVM RAID 0 ile yapılandırılmış LV'de yazma hızı ortalama olarak 2 katına çıkıyor. Unutmayın ki RAID 0 yedeklilik sağlamıyor. Bu yüzden yedeklilik gerektiren durumlarda RAID 1,2,4,6 ve 10 seviyelerinden birini kullanmalısınız. Tahmin edebileceğiniz üzere tüm RAID seviyelerini anlatmam bu yazıyı fazlasıyla uzatacağından, LVM'in RAID desteğini sadece striping yapılandırması ile göstermek istedim. Diğer seviyelerin detayları için kaynaklar bölümüne bakabilirsiniz.
 
+## LVM Snapshots
+LVM'in snapshot özelliği Red Hat Dokümantasyon sitesinde yazdığı gibi, bir cihazın belirli bir andaki sanal görüntülerini, herhangi bir hizmet kesintisine yol açmadan oluşturma imkanı sağlar. Snapshot alındıktan sonra orijinal (origin) cihazda bir değişiklik yapıldığında, snapshot özelliği değiştirilen veri alanının değişiklikten önceki halinin bir kopyasını oluşturur; böylece aygıtın önceki durumu yeniden yapılandırılabilir.[^5]
+
+Snapshot'lar hakkında bilinmesi gereken en önemli şey, snapshot'ların bir yedekleme yöntemi olmamasıdır. Snapshot, belirli bir zamandaki duruma dönmenizi (rollback) sağlar. Fakat bunun sebebi verilerin tamamını kopyalamamız değildir. Aslında yaptığımız şey, orijinal veride zaman içinde meydana gelen değişiklikleri kopyalamaktır. Bu işleme "COW", yani "Copy on Write" deniliyor. Bir LV'de değişiklik yapmadan önce, değişiklik yapılacak verinin değiştirilmemiş/orijinal hali snapshot alanına kopyalanır ve ardından asıl değişiklik orijinal verinin üzerinde gerçekleştirilir. Daha sonra bu snapshot'dan "rollback" yapmak istediğimizde, snapshot alanında saklanan bu orijinal bloklar, orijinal LV üzerine geri yazılır ve böylece "rollback" yapmış oluruz. Yani snapshot'ların bir yedekleme yöntemi olmamasının sebebi, tüm veriyi tutması değil, sadece farkı tutmasıdır. Aşağıda yaptığım *harika* animasyonla bu işlemi görebilirsiniz.
+
+
+{% include video-loop.html src="/assets/videos/lvm/snapshot.mp4" class="video-loop--medium" %}
+Gördüğünüz gibi snapshot'ların bir yedekleme yöntemi olmamasının sebebi, tüm veriyi tutması değil, sadece farkı tutmasıdır. Ayrıca bir snapshot, ait olduğu orijinal LV ile aynı Volume Group içinde, dolayısıyla aynı fiziksel disk(ler) üzerinde bulunduğundan, bu disk arızalanırsa, hem orijinal veri hem de snapshot birlikte kaybolur.
+
+Tahmin edebileceğiniz gibi, "COW" işlemi yazma performansını etkiler. Bu etki sadece bir bloğa ilk kez değişiklik yapıldığında oluşur çünkü aynı blok tekrar değiştirilirse, o blok içindeki orijinal veri zaten snapshot'a kopyalanmış olduğundan, sonraki yazmalar kopyalama adımını tekrarlamaz. Fakat birden fazla snapshot aktifse, her biri için bu işlem tekrarlanacağından performans daha da düşer.
+
+LVM Snapshot almanın Thick Provisioning ve Thin Provisioning olmak üzere 2 farklı yöntemi vardır. Thick provisioning, klasik, daha eski bir yöntemdir. Bu yöntemde snapshot oluştururken, snapshot'ımızın boyutunu önceden belirliyoruz ve bu alan, VG'den anında ayrılıyor. İçine hiç veri yazmasak bile, VG'deki bu alan dolu görünür ve başka bir LV bunu kullanamaz. Yaptığımız değişiklikler, snapshot'ın alanı dolana kadar kaydediliyor. Snapshot alanı belirli bir doluluk oranına ulaştığında, sistem log'larına uyarı düşer. Bu uyarı dikkate alınmazsa ve alan tamamen dolarsa, snapshot geçersiz (invalid) hale gelir çünkü origin volume'deki değişiklikleri artık kaydedemez. Bu yüzden snapshot'larınızın doluluk oranını düzenli olarak kontrol etmelisiniz.
+
+Thin provisioning ise klasik thick yaklaşımından tamamen farklıdır. Thin provisioning, LVM'de disk alanını "gerçekte kullanılan kadar" tahsis etme mantığıyla çalışan bir depolama yöntemidir. Snapshot oluştururken boyut belirtmeye gerek yoktur. Snapshot alanını önceden ayırmak yerine, önce bir thin pool oluşturulur. Snapshot'lar, origin volume'de değişiklik oldukça bu pool'dan ihtiyacı kadar alan kullanır. Bu sayede snapshot alma işlemi başlangıçta neredeyse hiç yer kaplamaz.
+
+Ancak bu yöntemin bazı riskleri var. Klasik, Thick provisioning'de her snapshot kendi alanına sahipken, thin provisioning'de tüm snapshot'lar aynı pool'u paylaşır. Bu yüzden tek bi snapshot'ın değil, pool'un genel doluluk oranının izlenmesi gerekir. Pool tamamen dolarsa, o pool'a bağlı tüm LV'ler ve snapshot'lar için yazma işlemi başarsız olabilir.
+
+LVM Snapshot oluşturma işlemini klasik olan thick provisioning yöntemiyle göstereceğim. Bu yazıyı gereğinden fazla uzatmamak ve daha detaylı anlatmak için thin provisioning yöntemini ayrı bir gönderide anlatacağım.
+
+`lvs` komutu ile LV'lerimizi görelim.
+<img src="/assets/images/lvm/snap_lvs.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+`lv_data1` LV'si 49 GiB boyutunda ve `vg_base` VG'sine ait. Bu LV'nin 10GiB boyutunda bir snapshot'ını oluşturmak istiyoruz. Bildiğiniz gibi thick provisioning yöntemiyle snapshot oluşturduğumuzda, alan anında tahsis ediliyor. Bu yüzden önce VG'mizdeki boş alanı kontrol etmeliyiz.
+<img src="/assets/images/lvm/snap_vgs.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+Gördüğünüz gibi `vg_base`, 10GiB'lık bir snapshot oluşturmak için uygun. Şimdi `lv_data1`'in bağlanma noktasını `lsblk /dev/vg_base/lv_data1` komutuyla öğrenelim.
+<img src="/assets/images/lvm/snap_lsblk.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+Daha sonra yapacağımız değişiklikleri karşılaştırabilmek için, önce bu bağlanma noktasındaki mevcut veriye `ls` ve `cat` komutuyla bakalım.
+<img src="/assets/images/lvm/originalfile.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">  
+`/data1`'de "original_file" adında bir dosyamız var. Birazdan LV'mizin snapshot'ını oluşturduktan sonra bu dosyanın içeriğini değiştereceğiz ve yeni bir dosya ekleyeceğiz.
+
+Şimdi `lv_data1` LV'sinin snapshot'ını oluşturabiliriz. Başlamadan önce bilmeniz gereken şey, snapshot'ın LVM'de özel bir LV türü  olmasıdır. Snapshot almak için ayrı, özel bir komut bulunmaz çünkü snapshot da LVM yönetiminde bir LV olarak ele alınır. Bu yüzden kullanacağımız komut `lvcreate` 
+
+Kullanım: `lvcreate -L <boyut> -s -n <snapshot_ismi> <origin_lv_yolu>`
+
+`-L`: Oluşturulacak LV'nin (bu durumda snapshot'ın COW alanının) boyutu. 
+
+`-s`: Snapshot flag. LVM'e bu LV'nin normal bir LV değil, snapshot olacağını belirtir.
+
+`-n lv_data1_snap`: Oluşturulacak snapshot'a verilecek isim.
+
+`/dev/vg/base/lv_data1`: Origin volume yani snapshot'ı alınacak asıl LV'nin tam yolu.
+
+Komut: `lvcreate -L 10G -s -n lv_data1_snap /dev/vg_base/lv_data1`
+<img src="/assets/images/lvm/snap_lvcreate.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+Şimdi tekrar lvs komutunu kullanarak LV'lerimize bakalım.
+<img src="/assets/images/lvm/snap_lvs2.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+`lv_data1` LV'sinin snapshot'ını oluşturduk. Attributes kısmında gördüğünüz "o" harfi origin LV'yi, "s" harfiyse snapshot LV'yi belirtiyor. Origin stünunda gördüğünüz gibi `lv_data1_snap`, `lv_data1`'i gösteriyor. (`lv_stripe` kısmında gördüğünüz "r" ise RAID yapılandırmasını belirtiyor.)
+
+Snapshot'ımızın origin volume de yaptığımız değişiklikleri kaydetmesi için mount etmemiz gerekiyor. 
+Bağlama noktasını oluşturalım.
+
+`mkdir -p /snapshot`
+
+Bu noktaya snapshot'ımızı bağlayalım.
+
+`mount /dev/vg_base/lv_data1_snap /snapshot`
+
+`lv_data1_snap`'in içeriğine aynı komutlarla bakalım.
+<img src="/assets/images/lvm/snapshotls.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+Gördüğünüz gibi `/data1`'deki, yani origin LV olan `lv_data1`'deki veri, snapshot'ımızda da aynı şekilde görünüyor. Bu durum sizi yanıltmasın çünkü bildiğiniz gibi snapshot'ta gördüğümüz "original_file", aslında snapshot'ın kendi alanında tutulan bir kopya değil. Sadece okuma isteği `/data1`'e yönlendirildiği için görünüyor. Birazdan origin'de değişiklik yaptığımız anda ise COW mekanizması devreye girecek ve değişecek olan bloğun eski hali, üzerine yazılmadan önce `/snapshot` alanına kopyalanacak. 
+
+Şimdi `/data1` üzerindeki "original_file" dosyasında değişiklik yapıyoruz.
+<img src="/assets/images/lvm/modified.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+Böylece artık "original_file", gerçek anlamda snapshot'ın kendi alanında tutulan bir kopya haline geldi. Aşağıya bakıldığında bir değişiklik yok ama bu artık orjinal dosyanın bir kopyası.
+<img src="/assets/images/lvm/snapshotreal.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+
+Bu örnekte hem original_file dosyasının adını hem de içeriğini değiştirdim. Fakat unutmayın ki, LVM snapshot dosya seviyesinde değil, blok seviyesinde çalışıyor. Farkı net şekilde görebilmeniz ve takipin kolaylığı için bu yöntemi kullandım.
+
+Artık LVM snapshot'dan geri yükleme (rollback) yapabiliriz. Önerilen yöntem olarak ilk önce origin ve snapshot'ı unmount edeceğiz.
+
+`umount /data1`
+
+`umount /snapshot`
+
+Ardından rollback işlemine başlayabilirz
+
+Kullanım: `lvconvert --merge /dev/<vg_name>/<snapshot_LV>`
+
+Komut: `lvconvert --merge /dev/vg_base/lv_data1_snap`
+<img src="/assets/images/lvm/lvconvert.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+
+İşlem tamamlandıktan sonra origin'i tekrar mount edelim.
+
+Komut: `mount /dev/vg_base/lv_data1 /data1`
+
+Kontrol ettiğimizde, adını ve içeriğini değiştirdiğimiz dosyanın, snapshot alındığı andaki orjinal haline geri döndüğünü görüyoruz.
+<img src="/assets/images/lvm/convertoriginal.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+`lvs` komutunu çalıştırarak LV'lerimizi görelim.
+<img src="/assets/images/lvm/lvsnew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+Artık `lv_data1_snap` adlı snapshot'ımız yok çünkü merge işlemi tamamlandıktan sonra otomatik olarak snapshot'ımız siliniyor.
+
+Böylece bu gönderinin sonuna geldik. İlk gönderim olan LVM konusunu olabildiğince ayrıntılı hazırlamaya çalıştım. Yazıyı gereğinden fazla uzatmamak ve takibin kolaylığı için yeterince değinmediğim veya yüzeysel geçtiğim bazı detayların olduğunun farkındayım. Bu detayları ilerleyen LVM yazılarımda daha derinlemesine anlatacağım. Kullandığım kaynaklara aşağıdan ulaşabilirsiniz. Okuduğunuz için teşekkür ederim.
+
+## Kaynaklar
+
+[^1]: [Red Hat Documentation: Configuring and Managing Logical Volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_logical_volumes/overview-of-logical-volume-management_configuring-and-managing-logical-volumes)
+[^2]: Stacey Peterson, [What is gibibyte (GiB)?](https://www.techtarget.com/it-infrastructure/definition/gibibyte-GiB), TechTarget, 2023.
+[^3]: [Red Hat Documentation: Appendix E. LVM Volume Group Metadata](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/logical_volume_manager_administration/lvm_metadata)
+[^4]: [Red Hat Documentation: Chapter 9. Configuring RAID logical volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_logical_volumes/configuring-raid-logical-volumes_configuring-and-managing-logical-volumes)
+[^5]: [Red Hat Documentation: 3.3.6. Snapshot Volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/6/html/logical_volume_manager_administration/snapshot_volumes)
 
