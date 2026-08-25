@@ -397,7 +397,7 @@ Command: `e2fsck -f /dev/vg_base/lv_data1`
 
 Let's shrink our file system.
 
-Command: `resize2fs/dev/vg/base_lv_data1 25G`
+Command: `resize2fs/dev/vg_base/lv_data1 25G`
 <img src="/assets/images/lvm/resize2fs.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
 Now we can shrink our LV.
 
