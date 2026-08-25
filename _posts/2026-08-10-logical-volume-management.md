@@ -3,625 +3,602 @@ title: "Logical Volume Management"
 tags: [lvm]
 cover: /assets/images/cover-lvm.jpg
 ---
-Logical Volume Management (LVM) konusunu anlatmaya başlamadan önce kısaca bu yazının ortaya çıkma sebebinden ve içeriğinden bahsetmek istiyorum. İnternette LVM hakkında bir çok yazı bulunsa da, konuyu araştırmaya başladığım sürede okuduğum bazı yazıların ortak özelliği yeterince açıklayıcı veya kapsamlı olmamasıydı. Bu yüzden öğrendiklerimi, bu konunun temeli olan fiziksel disklerden en üst katmanına kadar bir bütün şeklinde açıklayarak bu yazıda toplamak istedim. İlk olarak LVM’siz bir sistemde oluşan bir duruma göz atacağız. Sonrasında ise LVM'in ne olduğunu ve yapısını açıklayarak bu durumu nasıl çözdüğünü açıklayacağım. Daha sonra LVM'in diğer avantajlarını anlatacağım.
+Before I begin explaining Logical Volume Management (LVM), I'd like to briefly talk about why this article came about and what it covers. Although there are many articles about LVM on the internet, a common shortcoming I noticed in many of the articles I read while researching this topic was that they weren't sufficiently explanatory or comprehensive. That's why I wanted to gather what I've learned into this article, explaining it as a complete whole, starting from physical disks, which form the foundation of this subject, all the way up to its topmost layer. First, we'll take a look at a situation that arises in a system without LVM. Afterward, I'll explain what LVM is and describe its structure, showing how it solves this situation. Then, I'll go over the other advantages of LVM.
 
-## Log Dosyalarının Diski Doldurması
 
-Öncelikle LVM’siz bir sistemde depolama alanı dolduğunda oluşan duruma bakalım. Sistemin `lsblk` komutu ile görüntüsü şu şekilde:
+## Log Files Filling Up the Disk
+
+First, let's look at what happens in a system without LVM when the storage space fills up. The output of the system's `lsblk` command looks like this:
 ![lsblk komutu çıktısı](/assets/images/lvm/lsblk_cikti.png)
 
-Aşağıdaki ekte sisteme yeni eklenmiş 20 GB’lık `/dev/sdb` depolama birimi bulunuyor. Bu depolama birimi `/dev/sdb1` ve `/dev/sdb2` olarak 10 GB’lık bölümlere ayrılmış. `/data1` ve `/data2`’ye mount edilen bu iki bölüm uygulamaların log dosyalarını kaydetmek için oluşturulmuş.
+In the attachment below, there's a newly added 20 GB storage device, /dev/sdb, in the system. This storage device has been partitioned into 10 GB sections as /dev/sdb1 and /dev/sdb2. These two partitions, mounted at /data1 and /data2, were created to store the applications' log files.
 ![lsblk komuut çıktısı2](/assets/images/lvm/2_lsblk.png)
 
-Gerçek hayatta karşılaşılan sorunlardan birisi olan, log dosyalarının diskteki alanını tüketmesini simule edelim. Bu komut diski hızlıca dolduracağından kendi sistemlerinizde denemeyin.
+Let's simulate one of the problems encountered in real life: log files consuming the disk's space. Since this command will fill up the disk quickly, don't try it on your own systems.
 
 `cat /dev/zero > /data1/application.log`
-
 `cat /dev/zero > /data2/application.log`
 
-Aşağıdaki diagramda LVM’siz bir sistemi ve `watch df -h` komutu ile yaptığımız işlemi daha net görebilirsiz. Log dosyalarının diskteki alanı tüketmesini simule ediyoruz ve disk bu komuttan sonra dolmaya başlıyor.
+In the diagram below, you can more clearly see a system without LVM and the operation we performed using the `watch df -h` command. We're simulating log files consuming the disk's space, and the disk starts filling up after this command.
 {% include video-loop.html src="/assets/videos/lvm/video01.mp4" class="video-loop--medium" %}
+In this situation, you could of course choose to move the log files to another disk or delete them. But as you can probably guess, this process gets harder as the number of disks increases. In this case, you could expand your file system using LVM, or solve this problem in other ways. However, since the system you see above doesn't use LVM, you can't expand your file system. Now I'll explain LVM, which solves this problem and provides many other advantages, and describe how we'll use it.
 
-Bu durumda tabii ki log dosyalarını başka bir diske taşımayı veya silmeyi tercih edebilirsiniz. Fakat bu süreç tahmin edebileceğiniz gibi disk sayısı arttıkça zorlaşır. Bu durumda LVM kullanarak dosya sisteminizi genişletebilirdiniz veya farklı şekillerde bu sorunu çözebilirdiniz. Fakat yukarıda gördüğünüz sistemde LVM kullanılmadığı için, dosya sisteminizi genişletemezsiniz. Şimdi bu sorunu çözen ve bir çok avantaj sağlayan LVM’i açıklayıp nasıl kullanacağımızı anlatacağım.
 
-## LVM nedir ?
-Resmi Red Hat dokümantasyon sitesinde yazıldığı şekilde[^1], LVM fiziksel depolama üzerinde bir soyutlama katmanı oluşturarak mantıksal depolama birimleri (logical volume) oluşturmanızı sağlar. Bu, fiziksel depolamayı doğrudan kullanmaya kıyasla birçok açıdan çok daha fazla esneklik sunar. Bir logical volume ile, fiziksel disk boyutlarıyla sınırlı kalmazsınız. Ayrıca, donanım depolama yapılandırması yazılımdan gizlenir, böylece uygulamalar durdurulmadan veya dosya sistemleri unmount edilmeden yeniden boyutlandırılabilir ve taşınabilir. Bu da operasyonel maliyetleri azaltabilir.
+## What is LVM ?
+As stated on the official Red Hat documentation site[^1], LVM allows you to create logical volumes by forming an abstraction layer over physical storage. This offers far more flexibility in many respects compared to using physical storage directly. With a logical volume, you're not limited by physical disk sizes. Additionally, the hardware storage configuration is hidden from the software, so volumes can be resized and moved without stopping applications or unmounting file systems. This can, in turn, reduce operational costs.
 
-## LVM'in Bileşenleri
-Teknik tanımda da yazdığı gibi LVM fiziksel depolama üzerinde bir soyutlama katmanı oluşturur. Bu katman aşağıda gördüğünüz üzere 3 bileşenden oluşur.
+## Components of LVM
+As stated in the technical definition, LVM creates an abstraction layer over physical storage. As you can see below, this layer consists of 3 components.
 <img src="/assets/images/lvm/lvmdiagramupdate1.png" alt="lvmbilesen" class="post-img" style="max-width: 350px;">
-## Fiziksel Hacim (Physical Volumes)
-LVM yapısının en alt katmanını oluşturur. Bir disk, disk bölümü (partition) veya RAID dizisi gibi fiziksel bir depolama biriminin, LVM tarafından kullanılabilir hale getirilmesiyle oluşur. Bir fiziksel diskin LVM tarafından yönetilebilmesi için önce Fiziksel Hacim'e dönüştürülmesi gerekir.
-## Hacim Grubu (Volume Group)
-LVM, Fiziksel Hacim olarak oluşturulmuş bu depolama birimlerini Hacim Grubu denilen depolama havuzunda toplar. Fiziksel Hacimler tek başlarına kullanılamaz; ilk olarak bir Hacim Grubu’na dahil edilirler ve böylece farklı boyutlardaki disklerin kapasiteleri tek bir mantıksal havuzda birleştirilmiş olur. Bu Hacim Grubu’u, Mantıksal Hacim’lerin kullanacağı ortak depolama alanını temsil eder.
-## Mantıksal Hacim (Logical Volumes)
-LVM yapısının en üst katmanıdır. Hacim Grubu’nun içinden, ihtiyaca göre belirli bir boyutta ayrılan bölümdür. Mantıksal Hacim’ler, klasik disk bölümlerine (partition) benzer şekilde davranır ve üzerine dosya sistemi kurulabilir, biçimlendirilebilir ve mount edilebilir. Fiziksel diskin aksine, Mantıksal Hacim’lerin boyutu Hacim Grup’larının kapasitesine göre kolayca büyüyüp küçülebilir. Bu daha önce anlattığım durumdan da anlaşılabileceği gibi LVM’in en büyük avantajlarından biridir.
-Bu tanımları yaptığıma göre sizi daha fazla teknik bilgiye boğmadan kalan detayları LVM konfigürasyon senaryosu üzerinden anlatarak devam edeceğim. Yazının ilerleyen kısımlarında size ve bana kolaylık sağlaması için bu terimleri bilmenizi tavsiye ediyorum:
+## Physical Volume
+It forms the lowest layer of the LVM structure. It's created when a physical storage unit, such as a disk, disk partition, or RAID array, is made usable by LVM. In order for a physical disk to be managed by LVM, it must first be converted into a Physical Volume.
+## Volume Group
+LVM gathers these storage units, which have been created as Physical Volumes, into a storage pool called a Volume Group. Physical Volumes can't be used on their own; they're first added to a Volume Group, and in this way, the capacities of disks with different sizes are combined into a single logical pool. This Volume Group represents the shared storage space that the Logical Volumes will use.
+## Logical Volume
+It's the highest layer of the LVM structure. It's a section carved out of the Volume Group at a specific size, according to need. Logical Volumes behave similarly to classic disk partitions, and a file system can be set up on them, formatted, and mounted. Unlike a physical disk, the size of Logical Volumes can easily grow or shrink based on the capacity of their Volume Group. As can be understood from the situation I described earlier, this is one of LVM's biggest advantages.
 
-PV: Fiziksel Hacim
+Now that I've covered these definitions, I'll continue by explaining the remaining details through an LVM configuration scenario, without burying you in more technical information. For your convenience and mine as we move through the rest of the article, I recommend familiarizing yourself with these terms:
 
-VG: Hacim Grubu
+PV: Physical Volume
 
-LV: Mantıksal Hacim
+VG: Volume Group
 
-## LVM Konfigürasyon Senaryosu
-LVM’i ve yapısını açıkladığıma göre, konuyu daha iyi anlatabilmek için bir senaryo üzerinden LVM konfigürasyonu yapacağım. Senaryomuz şu şekilde:
+LV: Logical Volume
 
-Sisteme yeni eklenen 50 GB ve 100GB  olmak üzere 2 adet disk bulunmakta. Daha önce anlattığım “log dosyalarının diski doldurması” sorununa çözüm olarak bu diskleri LVM ile yönetmeye karar veriyoruz.
-Bu diskleri ilk önce PV’ye dönüştürüp, sonrasında LVM’e dahil edeceğiz. Ardından bu PV’leri, VG dediğimiz ortak bir havuzda birleştireceğiz. Bu havuzdan 25GB boyutunda `lv_data1` ve 50GB boyutunda `lv_data2` LV'lerini oluşturacak ve üzerlerine dosya sistemi kurarak `/data1` ve `/data2` konumlarına mount edeceğiz.
+## LVM Configuration Scenario
+Now that I've explained LVM and its structure, I'll walk through an LVM configuration using a scenario to better illustrate the topic. Our scenario is as follows:
 
-Kurulumu tamamladıktan sonra, `/data1` üzerinde log dosyasının diski doldurması senaryosunu tekrar simule edeceğiz. Çözüm olarak LV’nin ait olduğu VG’deki boş alanı kullanarak doğrudan LV’mizin boyutunu büyüteceğiz.
-Sonrasında `/data2`’nin de boş alanını dolduracağız. Bu LV’nin boyutunu 150GB olarak genişletmeyi istediğimizde VG’de boş alanın kalmadığını göreceğiz.
-Bu sorunu çözmek için 3. bir diski VG’ye ekleyip havuzu genişleteceğiz ve `/data2`'yi büyüteceğiz. Daha sonra `lv_data1` LV'sinin ait olduğu diskin bozulmaya başladığını varsayarak `lv_data1`'i başka bir diske aktaracağız. Bu işlemleri tamamladıktan sonra LVM’in diğer özelliklerini göstereceğim.
-## Açıklamalı LVM Konfigürasyonu
-İlk önce `lsblk` komutu ile yeni diskleri görelim.
+There are 2 newly added disks in the system, 50 GB and 100 GB in size. As a solution to the "log files filling up the disk" problem I mentioned earlier, we decide to manage these disks with LVM. We'll first convert these disks into PVs, and then bring them into LVM. Next, we'll combine these PVs into a common pool called a VG. From this pool, we'll create two LVs, `lv_data1` at 25GB and `lv_data2` at 50GB, and after setting up a file system on each, we'll mount them at `/data1` and `/data2`. 
+
+After completing the setup, we'll simulate the "log files filling up the disk" scenario again on `/data1`. As a solution, we'll directly grow the size of our LV by using the free space in the VG that the LV belongs to.
+
+After that, we'll fill up the free space on `/data2` as well. When we want to expand this LV's size to 150G, we'll see that there's no free space left in the VG.
+
+To solve this problem, we'll add a 3rd disk to the VG to expand the pool, and then grow `/data2`. Next, assuming that the disk `lv_data1` resides on has started to fail, we'll migrate `lv_data1` to another disk. After completing these steps, I'll go on to show LVM's other features.
+
+## LVM Configuration with Explanations
+First, let's view the new disks using the `lsblk` command.
 ![diskler](/assets/images/lvm/diskler.png)
+Before converting the physical disks into PVs, I need to mention something. It's possible to add physical disks directly to LVM without partitioning them. Alternatively, it's also possible to partition the physical disks first and create PVs from these partitions to add to LVM. However, according to the Red Hat documentation site, it's generally recommended to create a single disk partition that spans the entire disk, mark this partition as Linux LVM, and then convert it into a PV [^2]. For this reason, instead of using the disks directly, I'll stick to Red Hat's recommendations. Now that I've explained this detail, we can continue.
 
-Fiziksel Diskleri, PV’ye dönüştürmeden önce şundan bahsetmeliyim. Fiziksel diskleri bölümlemeden (partition) direkt LVM’e eklemek mümkün. Diğer şekilde Fiziksel diskleri bölümyelip, bu bölümlerden PV oluşturarak LVM’e eklemeniz de mümkün. Fakat Red Hat dokümantasyon sitesinde yazdığına göre genellikle bütün bir diski kaplayan tek bir disk bölümü oluşturup, bu bölümü Linux LVM olarak  işaretlemek ve sonrasına PV’ye dönüştürmek tavsiye ediliyor. Bu yüzden diskleri doğrudan kullanmak yerine Red Hat önerilerine bağlı kalacağım. Bu detayı açıkladığıma göre devam edebiliriz.
-
-## Disk Bölümleme
-Yapacağımız işlemi aşağıda görebilirsiniz. Her bölümün başında takibi ve anlatımı kolaylaştırması için bu diagramları ekleyeceğim. 
+## Disk Partitioning
+You can see the process we'll perform below. At the beginning of each section, I'll include these diagrams to make it easier to follow and explain.
 <img src="/assets/images/lvm/diskpartition1.png" alt="fdisk" class="post-img post-img--left" style="max-width: 650px;">
-İlk olarak `fdisk` komutu ile yeni eklenen diskleri tek bir bölüm (partition) olacak şekilde bölümleyeceğiz ve Linux LVM olarak işaretleyeceğiz.
-`fdisk /dev/sdb` komutunu çalıştırıp `n` yazın ve yeni bir partition oluşturma işlemine başlayın.
-
+First, we'll use the `fdisk` command to partition the newly added disks into a single partition each, and mark them as Linux LVM.
+Run the `fdisk /dev/sdb` command, then type `n` to begin creating a new partition.
 <img src="/assets/images/lvm/fdisk.png" alt="fdisk" class="post-img post-img--left" style="max-width: 650px;">
-
-Şimdi `p` yazarak primary partition seçeneğini seçin. `Partition number` kısmına 1 yazın. Bu bölümlemede bütün diski kullanacağımız için `First sector` ve `Last Sector` seçeneklerini boş bırakarak geçebilirsiniz.
+Now type `p` to select the primary partition option. For the `Partition number`, enter 1. Since we'll be using the entire disk for this partition, you can leave the `First sector` and `Last Sector` options blank and press enter to skip them.
 <img src="/assets/images/lvm/part.png" alt="part" class="post-img post-img--left" style="max-width: 650px;">
-Diski Linux LVM olarak işaretlemek için `t` yazın. Seçenekleri görmek için `L` yazın.
+Type `t` to mark the disk as `Linux LVM`. Type L to see the options.
 <img src="/assets/images/lvm/toption.png" alt="toption" class="post-img post-img--left" style="max-width: 650px;">
-Bölümü `8E` hex kodunu kullanarak Linux LVM olarak işaretleyin.
+Mark the partition as Linux LVM using the hex code 8E.
 <img src="/assets/images/lvm/83.png" alt="83" class="post-img post-img--left" style="max-width: 650px;">
-Yaptığınız değişiklileri `p` yazarak kontrol edin ve `w` ile kayderek çıkış yapın.
+Check the changes you've made by typing `p`, then type `w` to save and exit.
 <img src="/assets/images/lvm/poption.png" alt="poption" class="post-img post-img--left" style="max-width: 650px;">
-Bu işlemin aynısını `/dev/sdc` için tekrar edin. Diskler bu şekilde görünmeli:
+Repeat this same process for `/dev/sdc`. The disks should look like this:
 <img src="/assets/images/lvm/diskler2.png" alt="diskler2" class="post-img post-img--left" style="max-width: 650px;">
 
-## Fiziksel Disk bölümlerini Fiziksel Hacim'e Dönüştürme
+## Converting Physical Disk Partitions into Physical Volumes
 <img src="/assets/images/lvm/pvcreatefrom1.png" alt="pvcreate1" class="post-img post-img--left" style="max-width: 650px;">
-Fiziksel Hacim (PV) oluşturmak için  `pvcreate` komutunu kullanıyoruz. Bölümü LVM'de kullanmak üzere PV'ye dönüştürmek için `pvcreate /dev/sdb1` komutunu çalıştırın.
+We use the `pvcreate` command to create a Physical Volume (PV). To convert the partition into a PV for use in LVM, run the `pvcreate /dev/sdb1` command.
 <img src="/assets/images/lvm/pvcreate1.png" alt="pvcreate1" class="post-img post-img--left" style="max-width: 650px;">
-Oluşturduğumuz PV'nin detaylarını görmek için `pvdisplay` komutunu kullanın.
+Use the `pvdisplay` command to view the details of the PV we created.
 <img src="/assets/images/lvm/pvnew1.png" alt="pvdisplay" class="post-img post-img--left" style="max-width: 650px;">
-1: PV’nin adı oluşturduğumuz Fiziksel diskin adı olan `/dev/sdb1`.
+1: The PV's name is `/dev/sdb1`, the name of the physical disk we created it from.
 
-2: `VG Name` boş çünkü henüz bu Fiziksel Hacmi bir Hacim Grubu’na eklemedik.
+2: `VG Name` is empty because we haven't added this Physical Volume to a Volume Group yet.
 
-3: `PV Size 50 GiB` Fiziksel Hacmin boyutunu belirtiyor. Buradaki `GiB` ile `GB`’ı karıştırmayın. Aralarındaki farka kaynaklar[^2] kısmından ulaşabilirsiniz.
+3: `PV Size` 50 GiB indicates the size of the Physical Volume. Don't confuse GiB here with GB. You can find the difference between them in the sources[^3] section.
 
-4: `Allocatable NO` çünkü Fiziksel Hacim henüz bir Hacim Grubu’na eklemedik.
+4: `Allocatable NO` because the Physical Volume hasn't been added to a Volume Group yet.
 
-5 - 6 - 7 - 8: Bu kısmımda PE’nin ne olduğunu açıklayayım. PE (Physical Extent) yani Fiziksel Birim, Fiziksel Hacim (PV) üzerindeki en küçük depolama biriminidir. Fiziksel Hacim, Hacim Grubu’na dahil edildiğinde disk byte şeklinde değil, sabit boyutlu bloklara (extent) bölünerek yönetilir. Bu blokların boyutu 4 MiB. Yani bu Fiziksel Hacim’imiz henüz bir Hacim Grubu’na eklenmediği için henüz extentlere bölünmedi ve bu yüzden PE ile alakalı kısımlarda şimdilik 0 yazıyor.
+5 - 6 - 7 - 8: Let me explain what PE means in this part. PE (Physical Extent) is the smallest storage unit on a Physical Volume (PV). When a Physical Volume is added to a Volume Group, the disk is managed not in bytes but by being divided into fixed-size blocks called extents. The size of these blocks is 4 MiB. So since this Physical Volume of ours hasn't been added to a Volume Group yet, it hasn't been divided into extents yet, which is why the PE-related fields currently show 0.
 
-9:  Fiziksel Hacmin benzersiz kimlik numarasıdır. Bu UUID, `/dev/sdb1` gibi bir diskin en başındaki LVM metadata alanına (header) yazılıyor. Yani UUID işletim sistemi tarafında değil, diskin kendi üzerinde fiziksel olarak taşınıyor. Diskin ismi, sırası değişse veya başka bir sunucuya geçse bile PV UUID sabit kalır. LVM yapısı, Fiziksel Hacim (PV), Hacim Grubu (VG) ve Mantıksal Hacim (LV) arasındaki ilişki, bu UUID'ler üzerinden çapraz referans (PV↔VG↔LV) yapılarak oluşur.
+9: This is the Physical Volume's unique identifier. This UUID is written into the LVM metadata area (header) at the very beginning of a disk like `/dev/sdb1`. In other words, the UUID isn't tracked on the operating system's side, but is physically carried on the disk itself. Even if the disk's name or order changes, or it's moved to another server, the PV UUID remains the same. The LVM structure, meaning the relationship between the Physical Volume (PV), Volume Group (VG), and Logical Volume (LV), is built through cross-referencing (PV↔VG↔LV) via these UUIDs.
 
-Şimdi `/dev/sdc1` diskini Fiziksel Hacim’e dönüştürerek devam edelim.
+Now let's continue by converting the `/dev/sdc1` disk into a Physical Volume.
 
 `pvcreate /dev/sdc1`
 <img src="/assets/images/lvm/devsdc.png" alt="devsdc" class="post-img post-img--left" style="max-width: 650px;">
-Oluşturduğumuz PV’leri özet halinde görmek için `pvs` komutunu kullanın.
+Use the `pvs` command to view a summary of the PVs we've created.
 <img src="/assets/images/lvm/pvs.png" alt="devsdc" class="post-img post-img--left" style="max-width: 650px;">
-Artık disklerimiz LVM tarafından kullanılmaya ve VG oluşturmaya hazır. 
-
-## Fiziksel Hacimlerden Hacim Grubu Oluşturma
+Our disks are now ready to be used by LVM and to create a VG.
+## Creating a Volume Group from Physical Volumes
 {% include video-loop.html src="/assets/videos/lvm/vgcreate2.mp4" class="video-loop--medium" %}
-Şimdi oluşturduğumuz bir PV ile `vgcreate` komutunu kullanarak VG oluşturacağız. Sonrasına bu havuza diğer PV’leri ekleyeceğiz.
+Now we'll use one of the PVs we created along with the `vgcreate` command to create a VG. After that, we'll add the other PVs to this pool.
 
-Kullanım: `vgcreate <vg_adi> <pv_yolu>`
+Syntax: `vgcreate <vg_name> <pv_path>`
 
-Komut: `vgcreate vg_base /dev/sdb1`
+Command: `vgcreate vg_base /dev/sdb1`
 <img src="/assets/images/lvm/vgcreate.png" alt="vgcreate" class="post-img post-img--left" style="max-width: 650px;">
-VG’yi incelemeye başlamadan önce az oluşturduğumuz `/dev/sdb1` PV'sinin detaylarına tekrardan bakalım.
+Before we start examining the VG, let's take another look at the details of the `/dev/sdb1` PV we just created.
 <img src="/assets/images/lvm/pvnew2.png" alt="display" class="post-img post-img--left" style="max-width: 650px;">
-1: PV, artık bir VG’ye dahil olduğu için tahsis edilebilir durumda.
+1: The PV is now allocatable since it's part of a VG.
 
-2: Daha önce açıkladığım üzere PV, VG’ye dahil edildikten sonra 4 MiB’lik bloklara bölünmüş.
+2: As I explained earlier, once the PV is added to the VG, it gets divided into 4 MiB blocks.
 
-3: PV’nin toplam 12799 adet 4 MiB’lik bloklardan oluştuğunu ve boş alanı belirtiyor.
+3: This shows that the PV consists of a total of 12799 4 MiB blocks, and indicates the free space.
 
-4: Bu diskten henüz bir alan tahsis edilmemiş.
-
-İki PV’mizi karşılaştırarak farkı daha iyi görebiliriz.
+4: No space has been allocated from this disk yet.
+We can better see the difference by comparing our two PVs.
 <img src="/assets/images/lvm/vgeklenmis2.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
-Gördüğünüz gibi `/dev/sdb1` PV’si, VG’ye eklendikten sonra 12799 adet 4.00 MiB boyutunda bloklara bölünmüş. PV `/dev/sdc1` ise henüz bir VG’ye eklenmediği için bloklara bölünmemiş. Şimdi `vgdisplay` komutu ile oluşturduğumuz VG’yi inceleyelim.
+As you can see, after being added to the VG, the PV `/dev/sdb1` has been divided into 12799 blocks of 4.00 MiB in size. The PV `/dev/sdc1`, on the other hand, hasn't been divided into blocks yet since it hasn't been added to a VG. Now let's examine the VG we created using the `vgdisplay` command.
 <img src="/assets/images/lvm/vgdisplaynew.png" alt="vg" class="post-img post-img--left" style="max-width: 650px;">
-1: VG’nin adı.
+1: The VG's name.
 
-2: Grubun ait olduğu sistem kimliği. Genelde küme (cluster) ortamlarında kullanılır o yüzden boş.
+2: The system ID the group belongs to. Typically used in cluster environments, so it's empty.
 
-3: Standart LVM sürümü.
+3: The standard LVM format version.
 
-4: Bir VG’nin yapılandırma bilgileri metadata olarak adlandırılır.Bu metadata, LVM’deki hangi LV’nin ne kadar büyüklükte olduğu, hangi PE’lerin nerede tutulduğu, UUID’ler, isimler gibi genel yapılandırma bilgilerini bulunduruyor. Varsayılan olarak metadata, VG içerisinde bulunan tüm PV’lerin kendi metadata[^3] alanlarına kopyalanarak saklanır. Bu konu hakkında ihtiyacımız dışında fazla detaya girmek istemiyorum. Detaylarına kaynaklar kısmından bakabilirsiniz. 
+4: A VG's configuration information is referred to as metadata. This metadata holds general configuration information such as which LV in the LVM has what size, which PEs are stored where, UUIDs, and names. By default, this metadata is kept by being copied into the metadata[^4] areas of all PVs within the VG. I don't want to go into more detail on this topic than we need. You can check the sources section for further details.
 
-5:VG’de her işlem yapıldığında 1 artan revizyon numarası. 
+5: A revision number that increases by 1 every time an operation is performed on the VG.
 
-6: Varsayalın değer olarak LV oluşturabilir, silebilir ve boyutlandırabilirsiniz. “read-only” olarak ayarlandığında LV oluşturma, silme ve genişletme gibi hiçbir işlemi yapamazsınız.
+6: By default, you can create, delete, and resize LVs. When set to "read-only," you can't perform any operations such as creating, deleting, or extending LVs.
 
-7: Boyutlandırabilir olarak işaretlenmiş sabit değer. Çok nadir durumlar dışında değişmez o yüzden detaylandırmayacağım.
+7: A fixed value marked as resizable. It rarely changes except in very rare cases, so I won't go into detail about it.
 
-8: VG’nin içinde oluşturulabilecek LV sayısı. 0 değeri sınırsız anlamına geliyor.
+8: The number of LVs that can be created within the VG. A value of 0 means unlimited.
 
-9: VG’nin içindeki LV sayısı. 0 çünkü henüz LV oluşturmadık
+9: The number of LVs within the VG. It's 0 because we haven't created any LVs yet.
 
-10: Kullanımda olan LV sayısı 0.
+10: The number of LVs currently in use is 0.
 
-11: VG’ye eklenebilecek PV sayısı. 0 değer sınırsız anlamında.
+11: The number of PVs that can be added to the VG. A value of 0 means unlimited.
 
-12: VG’deki PV sayısı
+12: The number of PVs in the VG.
 
-13: VG’deki aktif PV sayısı.
+13: The number of active PVs in the VG.
 
-14: GiB cinsinden VG’nin boyutu. Bu değer birazdan diğer PV'miz olan `/dev/sdc1`'i eklediğimizde artacak.
+14: The VG's size in GiB. This value will increase shortly once we add our other PV, /dev/sdc1.
 
-15: PE (Physical Extent) boyutu. Varsayılan olarak 4 MiB.
+15: The PE (Physical Extent) size. 4 MiB by default.
 
-16: VG'nin 4 MiB’lık 12799 adet bloktan oluştuğunu belirtiyor.
+16: Indicates that the VG consists of 12799 blocks of 4 MiB.
 
-17: Tahsis edilmiş blok ve gibibayt sayısı. Henüz bir LV oluşturmadığımız için 0.
+17: The number of allocated blocks and gibibytes. It's 0 since we haven't created an LV yet.
 
-18: Tahsis edilebilir blok sayısı. 
+18: The number of allocatable blocks.
 
-19: Benzersiz Kimlik numarası. Daha önce anlattığım gibi bir PV’yi bir VG’ye eklediğimizde, LVM o PV’nin üzerine VG’nin UUID’sini yazar. Böylece PV ismiyle değil, UUID’iyle hangi VG’ye ait olduğunu bilir. 
+19: The unique identifier number. As I explained earlier, when we add a PV to a VG, LVM writes the VG's UUID onto that PV. This way, it knows which VG it belongs to by its UUID, not by the PV's name.
 
-Aşağıda `pvs -o pv_name,pv_uuid,vg_name,vg_uuid` komutunun çıktısında gördüğünüz gibi `/dev/sdb1` UUID’si üzerinden `vg_base` grubuna işaret ediyor.
+As you can see here in the output of the `pvs -o pv_name,pv_uuid,vg_name,vg_uuid` command `/dev/sdb1` points to the `vg_base` group via its UUID.
 <img src="/assets/images/lvm/uuid.png" alt="point" class="post-img post-img--left" style="max-width: 750px;">
-Şimdi /dev/sdc1 PV’sini vgextend komutu ile oluşturduğumuz VG’ye ekleyelim.
+Now let's add the `/dev/sdc1` PV to the VG we created, using the `vgextend` command.
 
-Kullanım: `vgextend <vg_adı> <pv_adı>`
+Syntax: `vgextend <vg_name> <pv_name>`
 
-Komut: `vgextend vg_base /dev/sdc1`
+Command: `vgextend vg_base /dev/sdc1`
 <img src="/assets/images/lvm/vgextend.png" alt="vgextend" class="post-img post-img--left" style="max-width: 650px;">
-Tekrar `vgdisplay` komutunu kullanarak VG’nin boyutunun arttığını görebiliriz. `Cur PV` ve `Act PV` sayısı ikiye yükseldi.
+Using the `vgdisplay` command again, we can see that the VG's size has increased. The `Cur PV` and `Act PV` counts have gone up to two.
 <img src="/assets/images/lvm/curpvnew.png" alt="volume" class="post-img post-img--left" style="max-width: 650px;">
-Artık PV’lerimiz aynı havuzda. PV UUID’leri `vg_base` adlı VG’mizin VG UUID’sine işaret ediyor.
+Now our PVs are in the same pool. The PV UUIDs point to the VG UUID of our VG named `vg_base`.
 <img src="/assets/images/lvm/vguuid.png" alt="havuz" class="post-img post-img--left" style="max-width: 650px;">
-## Hacim Grubu'ndan Mantıksal Hacim Oluşturma
+## Creating Logical Volumes From Volume Group
 <img src="/assets/images/lvm/lvcreatediagram.png" alt="havuz" class="post-img post-img--left" style="max-width: 650px;">
-Bu aşamada `lvcreate` komutunu kullanarak `vg_base adlı` VG'mizden, üzerinde dosya sistemi oluşturabileceğimiz bir Mantıksal Hacim (LV) oluşturacağız.
+Now, we'll use the `lvcreate` command to create a Logical Volume (LV) from our VG named `vg_base`, on which we can create a file system.
 
-Kullanım: `lvcreate -L <boyut> [M|G|T] -n <lv_adı> <vg_adı>`
+Syntax: `lvcreate -L <size> [M|G|T] -n <lv_name> <vg_name>`
 
-Komut: `lvcreate -L 25G -n lv_data1 vg_base`
+Command: `lvcreate -L 25G -n lv_data1 vg_base`
 
-Bu komutta istediğimiz miktarı `-L` ile byte cinsinden, `-l` ile yüzdelik veya blok cinsinden belirliyoruz. Genelde blok cinsinden belirtilmese de bilmekte fayda var. `-n` ile oluşturmak istediğimiz LV’nin adınıbelirledikten sonra bu hacmin hangi VG’den oluşturulacağını belirtiyoruz. 
-
-`lvdisplay` komutunu kullanarak oluşturduğumuz LV'yi inceleyebilirsiniz.
+With this command, we specify the amount we want in bytes using `-L`, or as a percentage or in blocks using `-l`. Although it's usually not specified in blocks, it's still useful to know. After specifying the name of the LV we want to create with `-n`, we indicate which VG this volume will be created from.
+You can examine the LV we created using the `lvdisplay` command.
 <img src="/assets/images/lvm/lvdisplaynew.png" alt="lvdisplay" class="post-img post-img--left" style="max-width: 650px;">
-1: LV'ye erişim yolu (device path). Dosya sistemi ekledikten sonra LV’yi bu yolu kullanarak mount edeceğiz.
+1: The device path for the LV. After adding a file system, we'll mount the LV using this path.
 
-2: LV’adı
+2: The LV's name.
 
-3: Bu LV’nin bağlı olduğu VG ismi.
+3: The name of the VG this LV belongs to.
 
-4: Sistemdeki her LV için benzersiz kimlik numarası.
+4: The unique identifier number for each LV on the system.
 
-5:  LV üzerinde okuma/yazma yapılabiliyor. LV’nizi read-only olarak ayarlayabilirsiniz.
+5: Read/write is enabled on the LV. You can set your LV to read-only.
 
-6: LV'nin hangi host'ta ve ne zaman oluşturulduğu bilgisi.
+6: Information about which host the LV was created on and when.
 
-7: LV aktif ve kullanıma hazır.
+7: The LV is active and ready for use.
 
-8: LV aktif ama şuan mount edilmemiş, kimse kullanmıyor.
+8: The LV is active but not currently mounted; no one is using it.
 
-9: LV’nin toplam boyutu.
+9: The LV's total size.
 
-10: LV’yi oluşturan Logical Extend (Mantıksal Blok) sayısı. Toplam 6400 adet 4MiB’lik bloklardan oluşuyor.
+10: The number of Logical Extents (Logical Blocks) that make up the LV. It consists of a total of 6400 4 MiB blocks.
 
-11: LV’nin kaç parçadan oluştuğunu gösteriyor. Disk üzerinde tek parça halinde yani bölünmemiş. Bu kısmı daha sonra açıklayacağım.
 
-12: Tahsis kuralları, VG’den almış yani özel bir ayar yok. Genelde bu şekilde.
+11: Shows how many segments the LV consists of. On disk, it's a single, unsplit segment. I'll explain this part later.
 
-13: Okuma öncesi (read-ahead) ayarı otomatik belirleniyor.
+12: Allocation rules, taken from the VG, meaning there's no special setting. This is generally the case.
 
-14: Otomatik ayarın şu anki gerçek "read-ahead" değeri, 256 sektör. Önemli bir detay değil.
+13: The read-ahead setting is set to automatic.
 
-15: Kernel içindeki major:minor numarasını gösteriyor. Kernel seviyesinde çalışma zamanında atanan kimlik.
+14: The actual current "read-ahead" value under the automatic setting, 256 sectors. Not an important detail.
 
-Şimdi 50GB'lık `lv_data2` LV'sini oluşturalım.
+15: Shows the major:minor number within the kernel. An identifier assigned at runtime at the kernel level. Again, not an important detail in our case.
 
-`lvcreate -L 50GB -n lv_data2 vg_base`
+Now let's create the 50GiB `lv_data2` LV.
+`lvcreate -L 50G -n lv_data2 vg_base`
 <img src="/assets/images/lvm/lvdata2.png" alt="lvdata2" class="post-img post-img--left" style="max-width: 650px;">
-`vgdisplay` komutu ile VG'mizin güncel halini inceleyelim.
+Let's examine the current state of our VG using the `vgdisplay` command.
 <img src="/assets/images/lvm/vgdnew.png" alt="vgdisplay2" class="post-img post-img--left" style="max-width: 650px;">
-1: VG’deki LV sayısı.
+1: The number of LVs in the VG.
 
-2: LV’lerin kaç tanesinin açık/kullanımda olduğunu gösteriyor. Oluşturduğumuz LV’lere henüz bir dosya sistemi ekleyip mount etmediğimiz için şimdilik 0.
+2: Shows how many of the LVs are open/in use. It's 0 for now, since we haven't added a file system to the LVs we created and mounted them yet.
 
-3: VG’mizin toplam boyutu. 50 ve 100GB olmak üzere 2 PV eklemiştik.
+3: The total size of our VG. We had added 2 PVs, 50 and 100GiB.
 
-4: 150GB’lık bu havuzun 75GB’ı kullanılıyor. 25 ve 50GB’lık 2 LV oluşturduk.
+4: 75GiB of this 150GiB pool is being used. We created 2 LVs, 25 and 50GiB.
 
-5: VG’de kalan boş alan.
+5: The remaining free space in the VG.
 
-lsblk komutu ile dağılımı görebiliriz.
+We can see the distribution using the `lsblk` command.
 <img src="/assets/images/lvm/lsblk.png" alt="lsblk" class="post-img post-img--left" style="max-width: 650px;">
-Burada farkedebileceğiniz gibi, varsayılan olarak LVM bir LV oluştururken rastgele veya sırayla PV seçmiyor. Oluşturulmak istenen PV’nin boyutuna en uygun PV’yi seçiyor. Örneğin:
+As you might notice here, by default, LVM doesn't select a PV randomly or sequentially when creating an LV. Instead, it selects the PV that's the best fit for the size of the LV to be created. For example:
 
-25GB’lık LV > 50 GB’lık PV’den oluşturulmuş.
+The 25GiB LV > was created from the 50 GiB PV.
+The 50GiB LV > was created from the 100 GiB PV.
 
-50GB’lık LV > 100 GB’lık PV’den oluşturulmuş.
+In other words, rather than first filling up one PV completely and then splitting the overflow onto another PV (the segment topic I'll explain later), LVM selects, among the PVs in the VG, the most suitable one that can hold the LV as a single piece. LVM uses the normal allocation policy by default when allocating physical extents for an LV. According to Red Hat's official documentation [^5], it's recommended that you not change this setting.
 
-Yani LVM, önce bir PV’yi tamamen doldurup taşan kısmı başka bir PV’ye parçalamak (birazdan anlatacağım *segment* konusu) yerine, VG içindeki PV’ler arasından LV’yi tek parça halinde barındırabilecek en uygun olanı seçiyor. Bu LVM’in varsayılan davranışı. Red Hat’in resmi dokümantasyonuna göre bu ayarı değiştirmemeniz tavsiye ediliyor.
-
-Eğer 125 GB’lık bir LV oluşturmuş olsaydık bu boyutta bir PV olmadığı için LV aşağıda gördüğünüz gibi normal olarak parçalara ayrılacaktı.
+If we had created a 125 GiB LV, since there's no PV of that size, the LV would normally have been split into segments, as you can see below.
 <img src="/assets/images/lvm/test.png" alt="test" class="post-img post-img--left" style="max-width: 650px;">
-Örnek olarak oluşturduğum bu LV’ye `lvdisplay` komutu ile bakalım.
+Let's take a look at this LV that I created as an example, using the `lvdisplay` command.
 <img src="/assets/images/lvm/segmentsnew.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;">
-1: Bu kısmı daha sonra açıklayacağımı söylemiştim. `Segments` alanı, LV’nin disk üzerinde hangi PV’lerde, hangi alanlarda durduğunu gösterir. Gördüğünüz gibi VG’mizdeki PV’lerin hiçbiri 125GB boyutunda olmadığı için, LV’miz 2 parçaya bölünmüş durumda. LV her zaman fiziksel olarak bitişik olmak zorunda değildir; bu şekilde parçalı da olabilir. Her bitişik parçaya *segment* diyoruz.*Segment* sayısı 1 ise LV tek parça halinde, bitişik alanda duruyor demek. Tercih edilen temiz yerleşim budur.
+1: I mentioned I'd explain this part later. The segments field shows which PVs and which areas on disk the LV resides in. As you can see, since none of the PVs in our VG are 125GiB in size, our LV has been split into 2 pieces. An LV doesn't always have to be physically contiguous. It can be fragmented like this. We call each contiguous piece a segment. If the segment count is 1, it means the LV resides as a single piece, in a contiguous area. This is the preferred, clean layout.
 
-*Segment* birden fazla ise LV farklı PV’lere yayılmış demek. PV boyutlarının yetersiz olduğu bu gibi durumlarda LV’ler doğal olarak parçalara (*segment*) bölünebilir. Ancak birazdan başka bir örnekte göstereceğim gibi, istenmeyen parçalı yerleşim, HDD kullanılan ortamlarda disk kafasını daha fazla hareket ettireceğinden tercih edilmez. 
-
-LV’nin doğal olarak parçalara bölündüğü durumunların dışında birden fazla *segment* sayısı görmeniz her zaman olumsuz bir durum anlamına gelmez. Örneğin yine ilerleyen kısımlarda anlatacağım üzere LVM’in şeritleme (striping) veya anlık görüntü (snapshot) gibi özelliklerini kullandığınızda da bu sayı  artar.
-## Dosya Sistemi Oluşturma ve Bağlama
+If the segment count is more than one, it means the LV is spread across different PVs. In cases like this, where the PV sizes aren't sufficient, LVs can naturally be split into segments. However, as I'll show in another example in the next part, this kind of unwanted fragmented layout isn't preferred in environments using HDDs, since it causes the disk head to move around more.
+## Creating and Mounting a File System
 <img src="/assets/images/lvm/filesystem1.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;"> 
-LVM sürecinin sonunda LV’lerimize `mkfs` komutu ile dosya sistemi ekleyip sisteme bağlayarak (mount) kullanmaya başlayabiliriz.
+At the end of the LVM process, we can start using our LVs by adding a file system with the mkfs command and mounting them onto the system.
+Syntax: `mkfs.<filesystem_type> <device_path>`
 
-Kullanım: `mkfs.<dosya_sistemi_türü> <cihaz_yolu>`
+A quick reminder before creating the file systems, the ext4 file system is ideal for desktop use or small-sized systems. Its size can be shrunk.
 
-Dosya sistemlerini oluşturmadan önce kısa bir hatırlatma:
+The xfs file system's size can't be shrunk. In other words, you can grow the size of an LV, but if you want to shrink it, you'll need to delete the LV and recreate it from scratch. So you should be careful about this.
 
-`ext4` dosya sistemi masaüstü kullanım veya küçük boyutlu sistemler için idealdir. Boyutu küçültülebilirdir.
+Now let's create the file systems.
 
-`xfs` dosya sisteminin boyutu küçültülemez. Yani bir LV’nin boyutunu büyütebilirsiniz fakat küçültmek isterseniz LV’nizi silip baştan oluşturmanız gerekir. Bu yüzden dikkatli olmalısınız.
+Command 1: `mkfs.ext4 /dev/vg_base/lv_data1`
 
-Şimdi dosya sistemlerini oluşturalım.
+Command 2: `mkfs.xfs /dev/vg_base/lv_data2`
 
-Komut 1: `mkfs.ext4 /dev/vg_base/lv_data1`
+After creating the file systems on our LVs, let's verify with the blkid command.
 
-Komut 2: `mkfs.xfs /dev/vg_base/lv_data2`
+Command 1: `blkid /dev/vg_base/lv_data1`
 
-LV’lerimizde dosya sistemi oluşturduktan sonra `blkid` komutuyla kontrol edelim.
-
-Komut 1: `blkid /dev/vg_base/lv_data1`
-
-Komut 2: `blkid /dev/vg_base/lv_data2`
+Command 2: `blkid /dev/vg_base/lv_data2`
 <img src="/assets/images/lvm/blkid10.png" alt="blkid" class="post-img post-img--left" style="max-width: 650px;">
-Bağlama noktaları (mount points) oluşturalım.
+Let's create the mount points.
 
-Komut 1: `mkdir /data1`
+Command 1: `mkdir /data1`
 
-Komut 2: `mkdir /data2`
+Command 2: `mkdir /data2`
 
-Dosya sistemli LV'lerimizi bu noktalara bağlayalım.
+Let's mount our LVs to these mount points.
 
-Komut 1: `mount /dev/vg_base/lv_data1 /data1`
+Command 1: `mount /dev/vg_base/lv_data1 /data1`
 
-Komut 2: `mount /dev/vg_base/lv_data2 /data2`
+Command 2: `mount /dev/vg_base/lv_data2 /data2`
 
-Tekrak `lsblk` komutunu kullanarak UUID'leri öğrenelim.
+Let's use the `lsblk` command to check.
 <img src="/assets/images/lvm/lsblk2.png" alt="lsblk2" class="post-img post-img--left" style="max-width: 650px;">
-Artık LV’ler kullanılmaya hazır. Bağlantı noktalarının kalıcı olması için LV UUID’lerini `/etc/fstab` dosyasına ekleyeceğiz. Tekrar `blkid` komutunu kullanrak LV’lerimizin UUID’sini öğrenelim.
+Now the LVs are ready to be used. To make the mount points persistent, we'll add the LV UUIDs to the `/etc/fstab` file. Let's use the `blkid` command to find out the UUIDs of our LVs.
 <img src="/assets/images/lvm/blkid12.png" alt="blkid2" class="post-img post-img--left" style="max-width: 750px;">
-UUID’leri kopyalayın ve aşağıda gördüğünüz şekilde `/etc/fstab` dosyasının en altına ekleyin.
+Copy the UUIDs and add them to the bottom of the `/etc/fstab` file, as shown below.
 <img src="/assets/images/lvm/vimetc.png" alt="etc" class="post-img post-img--left" style="max-width: 800px;">
- Artık sistem her açıldığında LV’lerimiz otomatik olarak bu klasörlere bağlanacak. LVM sürecini tamamladığımıza göre diğer senaryolara geçmeden önce aşağıda yaptığımız tüm işlemleri görebilirsiniz.
+Now, every time the system boots, our LVs will automatically be mounted to these folders. Now that we've completed the LVM process, you can see all the steps we performed below.
 {% include video-loop.html src="/assets/videos/lvm/fulldiagram2.mp4" class="video-loop--medium" %}
 
-## Disk Dolma Senaryosu: /data1
-Şimdi /data1 üzerinde log dosyalarının diski doldurma senaryosunu tekrar simule edeceğiz. Bu test için kullanacağımız komut:
+## Disk Filling Up Scenario: /data1
+Now we'll simulate the "log files filling the disk" scenario again on `/data1`. The command we'll use for this test:
 `cat /dev/zero > /data1/application_1.log`
 
-Aşağıda LV’nin doluşunu görebilirsiniz.
+You can see the LV filling up.
 {% include video-loop.html src="/assets/videos/lvm/disk_dolumu2.mp4" class="video-loop--medium" %}
-Artık sistemimizde LVM kullandığımıza göre depolama alanımızın boyutunu genişleterek bu sorunu çözebiliriz. LV boyutunu genişletmek için kullanılan komut `lvextend`.
 
-Kullanım 1: `lvextend -l +100%FREE <lv_path>` VG'deki tüm boş alanı kullanır.
+Now that we're using LVM in our system, we can solve this problem by expanding the size of our storage space. The command used to expand LV size is `lvextend`
 
-Kullanım 2: `lvextend -L 50G <lv_path>` LV'yi belirli bir boyuta genişletir.
+Syntax 1: `lvextend -l +100%FREE <lv_path>` uses all the free space in the VG.
 
-Kullanım 3: `lvextend -L +50G <lv_path` LV'ye belirli bir miktar ekler.
+Syntax 2: `lvextend -L 50G <lv_path>` expands the LV to a specific size.
 
-Şimdi LV'mizin boyutunu genişletelim.
+Syntax 3: `lvextend -L +50G <lv_path>` adds a specific amount to the LV.
 
-Komut: `lvextend -L +24G /dev/vg_base/lv_data1`
+Now let's expand the size of our LV.
+Command: `lvextend -L +24G /dev/vg_base/lv_data1`
 <img src="/assets/images/lvm/extend.png" alt="exnted" class="post-img post-img--left" style="max-width: 650px;">
-25GB yerine 24GB kullanmamın sebebi, şuan genişlettiğimiz `lv_data1`, 50GB’lık `/dev/sdb1` PV’si üzerinde duruyor. İlk bakışta LV’ye 25GB daha ekleyerek 50GB’lık PV’nin hepsini kullanmayı düşünebilirsiniz. Fakat gerçekte `/dev/sdb1`’in LVM için kullanılabilir (allocatable) boyutu tam olarak 50GB değil, yaklaşık 49.5GB’dır. Yani eğer 24 yerine 25GB’lık bir genişletme yapsaydım kalan 500 MB’ın başka bir diske bölündüğünü (*segment*) görecektik. Bu da aşağıda gördüğünüz gibi karmaşıklığa neden olur ve yönetimi zorlaştırır.
+The reason I used 24G instead of 25G is that `lv_data1`, which we're currently expanding, resides on the 50GiB PV`/dev/sdb1`. At first glance, you might think of using up the entire 50GiB PV by adding 25GiB more to the LV. However, in reality, the allocatable size of `/dev/sdb1` for LVM isn't exactly 50GiB, but approximately 49.5GiB. In other words, if I had expanded it by 25GiB instead of 24, we would have seen the remaining 500 MiB split off onto another disk (segment). As you can see below, this causes unnecessary complexity and makes management harder.
 <img src="/assets/images/lvm/disktest.png" alt="disktest" class="post-img post-img--left" style="max-width: 650px;">
-Bu yüzden bir LV’yi genişletirken üzerinde bulunduğu PV’den başka disklere bölünmesini istemiyorsanız bu duruma dikkat edin. 
+So, if you don't want your LV to be split onto other disks beyond the PV it currently resides on when expanding it, pay attention to this situation.
 
-`df -h /data1 /data2` komutu ile LV'lerimizin boyutunu kontrol edelim.
+Let's check the size of our LVs using the `df -h /data1 /data2` command.
 <img src="/assets/images/lvm/dfh.png" alt="disktest" class="post-img post-img--left" style="max-width: 650px;">
-Fark ettiğiniz gibi, LV’ye 25 GB daha eklememize rağmen boyutu artmadı ve 50GB yerine hala 25GB olarak görünüyor.
-Bunun sebebi  `lvextend` komutu sadece LV’yi büyütür, üzerindeki dosya sisteminin boyutunu değiştirmez. Bu yüzden `lvextend` komutunu kullandıktan sonra dosya sistemini de genişletmeniz gerekiyor. Bu işlem için kullanılan komutlar:
+As you may have noticed, even though we added 25 GB more to the LV, its size didn't increase, and it still shows as 25GiB instead of 50GiB.
 
-XFS dosya sistemini genişletmek için: `xfs_growfs`
+The reason for this is that the `lvextend` command only grows the LV itself; it doesn't change the size of the file system on top of it. That's why, after using the lvextend command, you also need to expand the file system. The commands used for this operation are:
 
-EXT4 dosya sistemini genişletmek için: `resizefs`
+To expand the XFS file system: `xfs_growfs`
+To expand the EXT4 file system: `resize2fs`
 
-LV'mizin dosya sistemini genişletelim.
+Let's expand the file system of our LV.
 
 `resize2fs /dev/vg_base/lv_data1`
 <img src="/assets/images/lvm/resize.png" alt="resize" class="post-img post-img--left" style="max-width: 650px;">
-Tekrar `df -h /data1 /data2` komutunu kullanarak boyutu kontrol edelim.
+Let's check the size again using the `df -h /data1 /data2` command.
 <img src="/assets/images/lvm/dfh10.png" alt="resize" class="post-img post-img--left" style="max-width: 650px;">
-Gördüğünüz gibi dosya sistemini genişlettikten sonra LV’mizin boyutu 50GB’a yükseldi. 
+As you can see, after expanding the file system, our LV's size increased to 50GiB.
 
-## Disk Dolma Senaryosu: /data2
-Bu kısımda `/data1`'de yaptığımız gibi, `/data2`’nin de boş alanını dolduracağız. Bu defa `lv_data2` LV’sinin boyutunu 150GB olarak büyüterek disk dolma sorununu çözmek istiyoruz. Fakat VG’mizde yeterli yer yok. Bu yüzden sisteme yeni bir disk ekledik ve VG’nin boyutunu büyüteceğiz. LV’mizin boyutunu 150GB yapacağız ve son olarak dosya sistemini de genişleterek süreci tamamlayacağız.
+## Disk Filling Up Scenario: /data2
+In this part, just like we did with `/data1`, we'll fill up the free space on `/data2` as well. This time, we want to solve the disk-filling problem by growing the size of the `lv_data2` LV to 150GiB. However, there isn't enough space left in our VG. That's why we've added a new disk to the system, and we'll expand the size of the VG. We'll set our LV's size to 150GiB, and finally complete the process by expanding the file system as well.
 
-Önceki bölümlerden bildiğiniz komutları kullanacağız ve aynı aşamaları takip edeceğiz. Bu örneğin amacı VG’de boş alan kalmadığında LV’mizin boyutunu büyütme sürecini göstermek.
+We'll use the commands you already know from previous sections and follow the same steps. The purpose of this example is to show the process of growing our LV's size when there's no free space left in the VG.
 
-Şimdi `cat /dev/zero > /data2/application_2.log` komutunu kullanarak boş alanı dolduralım.
+Now let's fill up the free space using the `cat /dev/zero > /data2/application_2.log` command.
 <img src="/assets/images/lvm/data2.png" alt="data2" class="post-img post-img--left" style="max-width: 650px;">
-`/data2`’nin bağlı olduğu `lv_data2`’nin boyutunu 150GB olarak genişletmek istiyoruz fakat VG’de sadece 50GiB yer kaldığını aşağıda görebilirsiniz.
+We want to expand the size of `lv_data2`, which /data2 is mounted on, to 150GiB, but as you can see here, there's only 50GiB of space left in the VG.
 <img src="/assets/images/lvm/bospace.png" alt="bospace" class="post-img post-img--left" style="max-width: 650px;">
-Bu sorunu çözmek için sistemimize 150GB’lık `/dev/sdd` diskini ekledik ve `lsblk` komutu ile kontrolünü yapıyoruz.
+To solve this problem, we've added a 150GiB `/dev/sdd` disk to our system, and we're verifying it using the `lsblk` command.
 <img src="/assets/images/lvm/sdd3.png" alt="sdd3" class="post-img post-img--left" style="max-width: 650px;">
-`pvcreate` komutu ile diskimizi VG’de kullanmak için PV’ye çevirmeden önce, hatırlayacağınız gibi ilk önce bütün diski kaplayan bir bölüm (partition) oluşturuyoruz. Bu aşama önceki kısımlarda anlattığım süreçle aynı olduğu için disk bölümleme işlemini göstermeyeceğim. İsterseniz aşamaları "İçerik" panelinden “Disk Bölümleme” yazısına tıklayarak tekrar inceleyebilirsiniz.
+Before converting our disk into a PV to use in the VG with the `pvcreate command`, as you'll recall, we first create a partition that spans the entire disk. This is the same process I explained in the earlier sections. So I won't show the disk partitioning step again. If you'd like, you can review the steps again by clicking on "Disk Partitioning" in the "Contents" panel.
 
-Aşağıda gördüğünüz gibi bütün diski kaplayan bir bölüm oluşturduk.
+As you can see below, we've created a partition that spans the entire disk.
 <img src="/assets/images/lvm/butundisk.png" alt="sdd3" class="post-img post-img--left" style="max-width: 650px;">
-Şimdi bu bölümü PV’ye dönüştürelim.
+Now let's convert this partition into a PV.
 
 `pvcreate /dev/sdd1`
 <img src="/assets/images/lvm/devsdd.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
-VG’mizin boyutunu `vgextend` komutu ile oluşturduğumuz PV’yi ekleyerek büyütüyoruz. Tekrar hatırlatmak için:
+We're growing our VG's size by adding the PV we created, using the `vgextend` command. As a reminder:
 
-Kullanım: `vgextend <vg_adı> <pv_path>`
+Syntax: `vgextend <vg_name> <pv_path>`
 
-Komut: `vgextend vg_base /dev/sdd1`
+Command: `vgextend vg_base /dev/sdd1`
 <img src="/assets/images/lvm/vgextenddd.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
-`vgdisplay` komutu ile VG’mizin yeni boyutuna bakalım.
+Let's take a look at our VG's new size using the `vgdisplay` command.
 <img src="/assets/images/lvm/yenispace.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
-Yeni PV'mizi ekledikten sonra toplam alan 150 GiB’den 299.99 GiB’e yükseldi. Artık `lv_data2` LV’mizin boyutunu büyütmek için bu alanı kullanabiliriz.
+After adding our new PV, the total space has increased from 150 GiB to 299.99 GiB. We can now use this space to grow the size of our `lv_data2` LV.
 
-Komut: `lvextend -L 150G /dev/vg_base/lv_data2`
+Command: `lvextend -L 150G /dev/vg_base/lv_data2`
 <img src="/assets/images/lvm/logical.png" alt="devsdd" class="post-img post-img--left" style="max-width: 825px;">
-`lvextend` komutunu kullanıp LV’mizin boyutunu büyüttükten sonra dosya sistemini genişletmemiz gerekiyor demiştim. Önceki aşamada kullandığımız `resize2fs` komutunu kullanmamalıyız çünkü `lv_data2` XFS dosya sistemi kullanılıyor. Dosya sistemi tipini `blkid` ile öğrenebilirsiniz.
+I mentioned that after growing our LV's size using the `lvextend` command, we need to expand the file system. We shouldn't use the `resize2fs` command we used in the previous stage, because `lv_data2` uses the XFS file system. You can find out the file system type using blkid.
 <img src="/assets/images/lvm/blkidata2.png" alt="devsdd" class="post-img post-img--left" style="max-width: 825px;">
-Bu yüzden kullancağımız komut `xfs_growfs`
+That's why the command we will use is: `xfs_growfs`
 
 `xfs_growfs /dev/vg_base/lv_data2`
 <img src="/assets/images/lvm/grownew1.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
-XFS dosya sistemini genişlettik. Aşağıda `/data2`’nin boyutunun arttığını görebilirsiniz.
+We've expanded the XFS file system. You can see that the size of `/data2` has increased.
 <img src="/assets/images/lvm/xfsgroww.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;"> 
-Güncel durumumuz `lsblk` komutu ile bu şekilde görünüyor.150 GiB'a genişlettiğimiz `lv_data2` LV'sini tek bir PV karşılayamadığı için, bu LV `/dev/sdc1` ve `/dev/sdd1` PV'leri üzerine dağıtılmış (segmentlenmiş) durumda.
+Our current state looks like this with the `lsblk` command. Since a single PV couldn't accommodate the `lv_data2` LV that we expanded to 150 GiB, this LV is now spread (segmented) across the `/dev/sdc1` and `/dev/sdd1` PVs.
 <img src="/assets/images/lvm/sonlsblk.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
-Standart `lsblk` veya `vgs` çıktısından `lv_data2` nin hangi PV'den ne kadar bir alan aldığını söylemek mümkün değil. Bunu öğrenmek için aşağıdaki komutu kullanabilirsiniz:
-
-Komut: `pvs -o lv_name,lv_size,pv_name,pv_size,seg_size --units g -S "lv_name=lv_data2"`
+It's not possible to tell from the standard `lsblk` or `vgs` output how much space `lv_data2` takes from which PV. You can use this command to find this out:
+Command: `pvs -o lv_name,lv_size,pv_name,pv_size,seg_size --units g -S "lv_name=lv_data2"`
 <img src="/assets/images/lvm/longcommandnew.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
-Kullandığımız komut çok pratik olmasa da çıktısı gayet anlaşılır.
+Although the command we used isn't very practical, its output is quite easy to understand.
 
-1: LV adı ve boyutu.
+1: The LV's name and size.
 
-2: Bu LV'nin üzerinde olduğu PV'ler ve boyutları.
+2: The PVs this LV resides on, and their sizes.
 
-3: LV'nin bu PV'lerden aldığı toplam alan.
+3: The total space this LV takes from these PVs.
 
-Yani 150GiB'lık LV `lv_data2`, 100 GiB boyutundaki `/dev/sdc1`'den 100GiB'lık alanı, 150GiB boyutundaki `/dev/sdd1`'den 50GiB'lık alanı kullanıyor.
+In other words, the 150GiB LV `lv_data2` uses `100GiB` of space from the 100 GiB `/dev/sdc1`, and 50GiB of space from the 150 GiB `/dev/sdd1`.
 
-## Mantıksal Hacim Boyutu Küçültme
-`lv_data1` LV'sinde 49GiB'lık alana artık ihtiyacımızın olmadığına karar veriyoruz. Bu yüzden LV'mizin boyutunu küçülterek VG'mizde başka LV'ler için yer açacağız. Başlamadan önce bilmeniz gereken iki önemli detay var. LVM'de LV boyutunu küçültmek, büyütmekten daha riskli bir işlem çünkü veri kaybı riski var. İlk önce dosya sistemi küçültülmeli, sonra LV küçültülmeli. Bu sırayı ters yaparsanız verileriniz kaybedersiniz. Diğer detay ise XFS dosya sisteminin hiçbir şekilde küçültülmeyi desteklememesi. XFS sadece büyütülebilir. XFS kullanıyorsanız LV'yi küçültmenin tek yolu istediğiniz boyutta yeni bir LV oluşturarak verilerinizi oraya taşımak. Bu yüzden EXT4 dosya sistemi kullandığımız `lv_data1`'i küçülteceğiz.
+## Shrinking a Logical Volume's Size
+We decide that we no longer need 49GiB of space on the `lv_data1` LV. So we'll shrink our LV's size to free up room in our VG for other LVs. Before we begin, there are two important details you need to know. In LVM, shrinking an LV's size is riskier than growing it, because there's a risk of data loss. The file system must be shrunk first, and then the LV. If you do this in the reverse order, you'll lose your data. The other detail is that the XFS file system doesn't support shrinking in any way. XFS can only be grown. If you're using XFS, the only way to shrink an LV is to create a new LV at the size you want and migrate your data there. That's why we'll shrink `lv_data1`, which uses the EXT4 file system.
 
-İlk olarak `lv_data1`'i, unmount ederek başlayalım.
+First, let's start by unmounting `lv_data1`.
 
-Komut: `umount /dev/vg_base/lv_data1`
+Command: `umount /dev/vg_base/lv_data1`
 
-Dosya sistemimizi kontrol edelim.
+Let's check our file system for errors.
 
-Komut: `e2fsck -f /dev/vg_base/lv_data1`
+Command: `e2fsck -f /dev/vg_base/lv_data1`
+
 <img src="/assets/images/lvm/dosyasistemikontrol.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
 
-Dosya sistemimizi küçültelim.
+Let's shrink our file system.
 
-Komut: `resize2fs/dev/vg/base_lv_data1 25G`
+Command: `resize2fs/dev/vg/base_lv_data1 25G`
 <img src="/assets/images/lvm/resize2fs.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+Now we can shrink our LV.
 
-Şimdi LV'mizi küçültebiliriz.
+Syntax: `lvreduce -L <target_size <lv_path>`
+Command: `lvreduce -L 25G /dev/vg_base/lv_data1`
 
-Kullanım: `lvreduce -L <hedef_boyut> <lv_path>`
-
-Komut: `lvreduce -L 25G /dev/vg_base/lv_data1`
 <img src="/assets/images/lvm/lvreduce.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
+Let's mount it again and check.
 
-Tekrar mount edelim ve kontrol edelim.
+Command 1: `mount /dev/vg_base/lv_data1 /data1`
 
-Komut1: `mount /dev/vg_base/lv_data1 /data1`
+Command 2: `df -h | grep data`
 
-Komut2: `df -h | grep data1`
 <img src="/assets/images/lvm/remoun.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
-Gördüğünüz gibi kısa ve basit bir işlem. Fakat sırayı karıştırmamaya dikkat edin yoksa verilerinizi kaybedebilirsiniz.
+As you can see, it's a short and simple process. But be careful not to mix up the order, or you could lose your data.
+## Disk Failure Scenario
+Now let's assume that the `/dev/sdb` disk, which houses the LV `lv_data1` which is mounted at `/data1`, has started to fail. In this case, the first solution that comes to mind might be to switch `/data1` to read-only mode, as often recommended, and start the migration with the `mv` command. However, as you know, this approach causes downtime. Moreover, commands that operate at the file system level, like `mv`, will leave the operation half-finished if something like a power outage or a disk error occurs during the move, and you'll have to manually check which files were moved and which weren't. There's no automatic resume or rollback mechanism. On top of that, if there's more than one LV on the disk, moving files with the `mv` command doesn't remove the disk from the VG, so the other LVs on that disk would still remain on the failing disk.
 
+For this reason, before removing our failing disk from the VG, we'll use the `pvmove` command to safely migrate the LV and its data. Unlike `mv`, the `pvmove` command operates at the block level. In other words, it doesn't care at all about what the file system is or what files are inside it. It moves LVM's PEs from one PV to another. What actually happens isn't a "file move," but a change in where the LV physically resides. `pvmove` performs the move in segments by creating a temporary mirror (like RAID) between the source and the destination. As each segment completes, the progress is written to the VG metadata as a checkpoint. This operation runs in the background while the LV is mounted and services are running. So you don't need to unmount the disk or experience any downtime to move the data. If the system crashes or the disk throws an error during the process, LVM records it as an incomplete `pvmove`, and when you run the command again, it picks up where it left off, because LVM knows which PEs have been moved and which haven't. This way, everything is preserved. Now that I've explained these details, we can begin.
 
-## Disk Bozulma Senaryosu
-Şimdi `/data1`'e mount edilen `lv_data1` LV'sinin bulunduğu `/dev/sdb` diskinin bozulmaya başladığını varsayalım. Bu durumda akla ilk gelen çözüm, önerildiği gibi `/data1`'i read-only moduna geçirerek taşıma işlemini `mv` komutuyla başlatmak olabilir. Fakat bu yöntem bildiğiniz gibi kesintiye yol açar. Ayrıca `mv` gibi dosya sistemi seviyesinde çalışan komutlar taşıma sırasında elektrik kesintisi veya disk hatası gibi bir sorunla karşılaşırsa işlem yarıda kalır ve hangi dosyaların taşındığını, hangilerinin taşınmadığını elle kontrol etmeniz gerekir. Otomatik devam veya geri alma mekanizması yoktur. Bununla birlikte disk üzerinde birden fazla LV varsa `mv` komutu ile dosyaları taşımak diski VG'den çıkarmayacağından, diskteki diğer LV'ler hala o bozuk disk üzerinde kalmaya devam ederler.
+We've noticed that the `/dev/sdb` disk has started to fail. We had created the PV named `/dev/sdb1` on this disk. That means all the LVs and data on the `/dev/sdb1` PV are at risk. So we want to safely migrate these LVs to the `/dev/sdd1` PV, which we created from our newly added `/dev/sdd` disk. First, let's check whether there's enough space on `/dev/sdd1` using the `pvs` command.
 
-Bu nedenle bozulmaya başlayan diskimizi VG'den çıkarmadan önce LV ve verilerini güvenli bir şekilde taşımak için `pvmove` komutunu kullanacağız. `pvmove` komutu, `mv` aksine blok seviyesinde çalışır. Yani dosya sisteminin ne olduğuyla veya içindeki dosyalarla hiç ilgilenmez. LVM'in PE'lerini bir PV'den başka bir PV'ye taşır. Aslında yapılan işlem bir "dosya taşıma" değil, LV'nin fiziksel olarak nerede durduğunu değiştirme işlemidir. `pvmove`, kaynak ve hedef arasında geçici bir *mirror* (RAID gibi) oluşturarak *segment* şeklinde taşır. Her *segment* tamamlandığında ilerleme VG metadata'sına *checkpoint* olarak yazılır. Bu işlem LV mount'luyken ve servisler çalışırken arka planda yürütülür. Yani veriyi taşımak için diski *unmount* etmenize ve kesinti yaşamanıza gerek kalmaz. İşlem sırasında sistem çökerse veya disk hata verirse, LVM bunu yarım kalmış `pvmove` olarak kaydeder ve komutu tekrar çalıştırdığınızda kaldığı yerden devam eder çünkü hangi PE'lerin taşınıp, hangilerinin taşınmadığı LVM tarafından bilinir. Böylece her şey korunur. Bu detayları açıkladığıma göre artık başlayabiliriz. 
-
-`/dev/sdb` diskinin bozulmaya başladığını fark ettik. Bu diskte `/dev/sdb1` adlı PV oluşturmuştuk. Yani `/dev/sdb1` PV'si üzerindek tüm LV'ler ve verileri risk altında. Bu yüzden yeni eklediğimiz `/dev/sdd` diskinden oluşturduğumuz `/dev/sdd1` PV'sine bu LV'leri güvenli bir şekilde taşımak istiyoruz. İlk olarak `/dev/ssd1`'de yeterli alanın olup olmadığını `pvs` komutu ile kontrol edelim.
 <img src="/assets/images/lvm/pvs2.png" alt="3disk" class="post-img post-img--left" style="max-width: 650px;">
-Gördüğünüz gibi `/dev/sdd1` PV'sinde yeterince yer var. Başlamadan önce daha sonra referans yapabilmemiz için hangi LV'lerin hangi PV'leri kullandığını `pvs --segments -o lv_name,seg_size,pv_name,pv_size --units g | awk 'NF==4'` komutu ile görelim.
+As you can see, the `/dev/sdd1` PV has enough space. Before we begin, let's see which LVs are using which PVs, so we can refer back to it later, using the command `pvs --segments -o lv_name,seg_size,pv_name,pv_size --units g | awk 'NF==4'`
 <img src="/assets/images/lvm/pvsoption.png" alt="pvsoption" class="post-img post-img--left" style="max-width: 450px;">
-Önerilen yöntem olarak `vgcfgbackup vg_base` komutu ile VG'mizin LVM yapılandırma bilgisini yedekleyelim.
+As a best practice, let's back up our VG's LVM configuration information using the `vgcfgbackup vg_base` command.
 <img src="/assets/images/lvm/vgbackup.png" alt="vgbackup" class="post-img post-img--left" style="max-width:550px;">
-Şimdi `pvmove` komutunu kullanarak işleme başlayalım.
+Now let's begin the process using the `pvmove` command.
 
-Kullanım: `pvmove <kaynak_pv> <hedef_pv>`
+Syntax: `pvmove <source_pv> <destination_pv>`
 
-Komut: `pvmove /dev/sdb1 /dev/sdd1`
+Command: `pvmove /dev/sdb1 /dev/sdd1`
 <img src="/assets/images/lvm/pvmoved.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 650px;">
-Aktarma tamamlandıktan sonra tekrar `pvs --segments -o pv_name,pv_size,lv_name,seg_size --units -g` komutunu kullanarak güncel hale bakalım.
+After the migration completes, let's take another look at the current state using the `pvs --segments -o pv_name,pv_size,lv_name,seg_size --units -g` command again.
 <img src="/assets/images/lvm/pvsfinal.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 450px;">
-Gördüğünüz gibi artık `lv_data1` LV'si `/dev/sdd1` PV'sine taşınmış durumda. Aktarma işlemi tamamlandıktan sonra bozulmaya başlayan diskten oluşan `/dev/sdb1` PV'sini VG'den çıkarabilirz. Kullanacağımız komut `vgreduce`
-
-Kullanım: `vgreduce <vg_adı> <pv_adı>`
-
-Komut: `vgreduce vg_base /dev/sdb1`
+As you can see, the `lv_data1` LV has now been moved to the `/dev/sdd1` PV. After the migration is complete, we can remove the `/dev/sdb1` PV, created from the failing disk, from the VG. The command we'll use is `vgreduce`.
+Syntax: `vgreduce <vg_name> <pv_name>`
+Command: `vgreduce vg_base /dev/sdb1`
 <img src="/assets/images/lvm/vgreduce.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 550px;">
-
-PV'mizi VG'den çıkardıktan sonra, diskimizi artık PV statüsünden çıkarabiliriz.
+Now that we've removed our PV from the VG, we can remove our disk from PV status.
 <img src="/assets/images/lvm/pvremove2.png" alt="pvremve" class="post-img post-img--left" style="max-width: 650px;">
-Artık işlemimizi tamamladık ve diskimizi unmount etmeden veya read-only moduna geçirmeden canlı bir şekilde diskteki tüm LV'leri (Birden fazla LV'miz olsaydı aynı adımlar geçerli olurdu.) ve verilerini taşıdık.
-
+We've now completed our operation, and without unmounting the disk or switching it to read-only mode, we migrated all the LVs on the disk and their data live, without any downtime. If we had had more than one LV, the same steps would still apply.
 ## LVM Striping
-LVM striping konusunu anlatmadan önce, LVM kullanarak RAID oluşturmaktan bahsetmeliyim. Fiziksel disklerinizi PV'ye dönüştürdükten sonra LVM'in RAID özelliğini kullanarak PV'lerinizden 0,1,4,5,6 ve 10 seviyelerinde RAID oluşturabilirsiniz [^4]. Fakat yaygın pratikte önce RAID oluşturmak, ardından bu RAID cihazını LVM'e PV olarak eklemek tavsiye ediliyor. Yani disk arıza yönetimi ve yedeklilik takibini LVM ile yönetmek yerine, sadece bu iş için tasarlanmış `mdadm` komutunu kullanarak RAID oluşturmak daha doğru bir yaklaşım. Böylece RAID yönetimi `mdadm`, hacim yönetimi ise LVM tarafından yönetiliyor.
+Before I get into the topic of LVM striping, I should mention creating RAID using LVM. After converting your physical disks into PVs, you can use LVM's RAID feature to create RAID at levels 0, 1, 4, 5, 6, and 10 from your PVs[^6]. However, common practice recommends creating the RAID first, and then adding this RAID device to LVM as a PV. In other words, rather than managing disk-failure handling and redundancy tracking with LVM, it's a more correct approach to create the RAID using the mdadm command, which is designed specifically for this purpose. This way, RAID management is handled by mdadm, while volume management is handled by LVM.
 
-Bu nedenle bu bölümde LVM'in RAID özelliklerini kapsamlı bir şekilde ele almak yerine, RAID'in yedekleme sağlamayan ve LVM'de en çok tercih edilen kullanım senaryosuna odaklanacağız. Disk performansını arttırmaya yarayan RAID 0 (striping) yöntemi.
+For this reason, instead of covering LVM's RAID features comprehensively in this section, we'll focus on the RAID 0 (striping) method, which doesn't provide redundancy but is the most commonly preferred use case within LVM. It's used to increase disk performance.
 
-Sistemimize `/dev/sde` 50GB ve `/dev/sdf` 50GiB olmak üzere 2 disk ekledik. Bu diskleri PV'ye dönüştürüp LVM'e dahil ederek RAID 0 (striping) yapılandırmasıyla bir LV oluşturacağız.
-Öncelikle disklerimi görelim.
+We've added 2 disks to our system: `/dev/sde` at 50GiB and `/dev/sdf` at 50GiB. We'll convert these disks into PVs, add them to LVM, and create an LV with a RAID 0 (striping) configuration.
+
+First, let's take a look at our disks.
 <img src="/assets/images/lvm/yenidiskler.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 650px;">
-Disklerimizi PV oluşturmak üzere bölümleyelim. Bu işlemini "İçerik" kısmından "Disk Bölümleme" kısmından inceleyebilirsiniz. `lsblk /dev/sde /dev/sdf` komutunun çıktısı bu şekilde olmalı:
+Let's partition our disks in order to create PVs. You can review this process in the "Contents" section under "Disk Partitioning." The output of the `lsblk /dev/sde /dev/sdf` command should look like this:
 <img src="/assets/images/lvm/lsblknew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 650px;">
-`pvcreate /dev/sde1 /dev/sdf1` komutunu kullanarak PV'lerimizi oluşturuyoruz.
+We're creating our PVs using the `pvcreate /dev/sde1 /dev/sdf1` command.
 <img src="/assets/images/lvm/pvler1.png" alt="yenidiskler" class="post-img post-img--left" style="max-width 450px;">
-Kontrolün kolay olması için önceki aşamalarda oluşturduğumuz `vg_base` adlı VG'den ayrı olarak `vg_stripe` adında yeni bir VG oluşturacağız. Tekrar hatırlatmak için:
+To make things easier to track, we'll create a new VG named `vg_stripe`, separate from the `vg_base` VG that we created in the earlier stages. As a reminder:
 
-Kullanım: `vgcreate <vg_adi> <pv_path>`
+Syntax: `vgcreate <vg_name> <pv_path>`
 
-Komut: `vgcreate vg_stripe /dev/sde1 /dev/sdf1`
+Command: `vgcreate vg_stripe /dev/sde1 /dev/sdf1`
 
-Bu komutu çalıştırdıktan sonra `vgs` komutuyla VG'mizi kontrol edelim.
+After running this command, let's check our VG using the `vgs` command.
 <img src="/assets/images/lvm/vgs.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 650px;"> 
+Now we'll create a new LV named `lv_stripe` with a RAID 0 configuration, using all of the free space in the `vg_stripe` VG.
 
+Syntax: `lvcreate --type <raid_type> -i <stripe_count> -I <stripe_size> -l <lv_size> -n <lv_name> <vg_name>`
 
-Şimdi `vg_stripe` VG'sindeki boş alanın tamamını kullanarak RAID 0 yapılandırmasında `lv_stripe` adında yeni bir LV oluşturacağız.
-
-Kullanım: `lvcreate --type <raid_türü> -i <stripe_sayısı> -I <stripe_boyutu> -l <lv_boyutu> -n <lv_adı> <vg_adı>`
-
-Komut: `lvcreate --type raid0 -i 2 -I 64 -l 100%FREE -n lv_stripe vg_stripe`
+Command: `lvcreate --type raid0 -i 2 -I 64 -l 100%FREE -n lv_stripe vg_stripe`
 <img src="/assets/images/lvm/lvcreateyenidisk.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
-`--type raid0`: Oluşturulacak LV'nin tipini belirtiyor.
+`--type raid0`: Specifies the type of LV to be created.
 
-`-i 2`: Stripe sayısı. Verinin kaç fiziksel disk/PV üzerinde bölüneceğini belirtir. Veriler 2 PV üzerine yani `/dev/sde1` ve `/dev/sdf`'ye sırayla dağıtılacak.
+`-i 2`: The stripe count. Specifies how many physical disks/PVs the data will be split across. The data will be distributed sequentially across 2 PVs, /dev/sde1 and /dev/sdf1.
 
-`-I 64`: Stripe boyutunu belirtir. Yani stripe'ın 64 KiB olması, verinin bu boyutlarda bir diske yazıldıktan sonra diğer diske geçmesi anlamına geliyor. 
+`-I 64`: Specifies the stripe size. In other words, a stripe size of 64 KiB means that once data is written to one disk in this amount, it moves on to the next disk.
 
-`-l 100%FREE`: LV'ye ayrılacak alan. Yani `vg_stripe` VG'mizdeki tüm alanı kullanıyoruz.
+`-l 100%FREE`: The space to be allocated to the LV. That is, we're using all of the space in our `vg_stripe` VG.
 
-`-n lv_stripe`: LV adı.
+`-n lv_stripe`: The LV's name.
 
-`vg_stripe`: LV'nin oluşturulacağı kaynak VG.
+`vg_stripe`: The source VG the LV will be created from.
 
-LV'mizi oluşturduktan sonra `lsblk /dev/sde /dev/sdf` komutu ile `lv_stripe`'i inceleyelim.
+After creating our LV, let's examine `lv_stripe` using the `lsblk /dev/sde /dev/sdf` command.
 <img src="/assets/images/lvm/lvmstripenew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
-100GiB boyutunda `lv_stripe` adlı LV'miz RAID 0 yapılandırılmasıyla 2 fiziksel disk üzerine dağılmış durumda. Yukarı gördüğünüz `rimage_0` ve `rimage_1`, LVM RAID'in her stripe/disk için oluşturduğu alt-LV bileşenleridir. Doğrudan müdahele gerektiren bir şey değil yani detaylarına ihtiyacımız yok.
+Our LV named `lv_stripe`, 100GiB in size, is distributed across 2 physical disks in a RAID 0 configuration. The `rimage_0` and `rimage_1` you see above are the sub-LV components that LVM RAID creates for each stripe/disk. They aren't something that requires direct intervention, so we don't need to go into their details.
 
-`lv_stripe` üzerinde bir dosya sistemi oluşturalım.
+Let's create a file system on `lv_stripe`.
 
-Komut: `mkfs.xfs /dev/vg_stripe/lv_stripe`
+Command: `mkfs.xfs /dev/vg_stripe/lv_stripe`
 
-LV'mizi kullanabilmek için bir bağlama noktası (mount point) oluşturup buraya bağlayalım:
+To be able to use our LV, let's create a mount point and mount it there:
+Command 1: `mkdir /striped`
 
-Komut1: `mkdir /striped`
-
-Komut2: `mount /dev/vg_stripe/lv_stripe /striped`
-
+Command 2: `mount /dev/vg_stripe/lv_stripe /striped`
 <img src="/assets/images/lvm/lvmstriped2.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
+Now that our LV named `lv_stripe` is mounted to the `/striped` folder, it's ready to use. (Don't forget to add an entry to the `/etc/fstab` file to make this mount point persistent.)
 
-Artık `lv_stripe` adlı LV'miz `/striped` adlı klasöre bağlandığına göre kullanıma hazır. (Bu noktanın kalıcı olması için `/etc/fstab` dosyasına ekleme yapmayı unutmayın.) 
+Now let's compare the `lv_data1` LV, mounted on `/dev/sdd1` as seen in the attachment above, against our newly created `lv_stripe`, in terms of write speed to see the performance advantage that RAID 0 (striping) provides.
 
-Şimdi yukarıda gördüğünüz ekteki `/dev/sdd1` üzerine kurulu olan `lv_data1` LV'si ile yeni oluşturduğumuz `lv_stripe`'ı yazma hızı olarak karşılaştırarak RAID 0 (striping)'in sağladığı performans avantajını görelim. 
+There's an important point I need to mention here. If you're performing this on a virtual machine (VM), as I did, you won't see the write speed difference we'd expect in the fio test. This is because the disks we added to the VM (`/dev/sdd`, `/dev/sde`) are virtual, and in the background they still share the host machine's single physical disk. In other words, even though we've correctly set up the RAID 0 configuration at the LVM level, since these virtual disks physically reside on the same underlying disk, they don't provide true parallelism, and we can't measure striping's real performance gain in a VM environment.
 
-Bu noktada belirtmem gereken önemli bir nokta var. Bu işlemi benim yaptığım gibi bir sanal makine (VM) üzerinde yapıyorsanız, `fio` testinde beklediğimiz yazma hızı farkını göremeyeceksiniz. Bunun sebebi, VM'e eklediğimiz disklerin (`/dev/sdd`,`/dev/sde`) sanal olması ve arka planda hala ana makinenin (host) tek bir fiziksel diski paylaşmasıdır. Yani LVM seviyesinde RAID 0 yapılandırmasını doğru şekilde kurmuş olsak da, bu sanal diskler fiziksel olarak aynı temel disk üzerinde bulunduğu için gerçek bir paralellik sağlamıyor ve striping'in asıl performans kazancını VM ortamında ölçemiyoruz.
-
-VM kullanmadığımız bir durumda `fio` testinin sonucunda iki LV arasındaki fark bu şekilde olurdu:
-
-`lv_data1` yazma hızı.
+In a scenario where we're not using a VM, the difference between the two LVs in the fio test would look like this:
+`lv_data1`'s write speed.
 <img src="/assets/images/lvm/readwritenormalnew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;"> 
-`lv_stripe`yazma hızı.
+`lv_stripe`'s write speed.
 <img src="/assets/images/lvm/readwritestripenew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
-Gördüğünüz üzere LVM RAID 0 ile yapılandırılmış LV'de yazma hızı ortalama olarak 2 katına çıkıyor. Unutmayın ki RAID 0 yedeklilik sağlamıyor. Bu yüzden yedeklilik gerektiren durumlarda RAID 1,2,4,6 ve 10 seviyelerinden birini kullanmalısınız. Tahmin edebileceğiniz üzere tüm RAID seviyelerini anlatmam bu yazıyı fazlasıyla uzatacağından, LVM'in RAID desteğini sadece striping yapılandırması ile göstermek istedim. Diğer seviyelerin detayları için kaynaklar bölümüne bakabilirsiniz.
+As you can see, in an LV configured with LVM RAID 0, write speed roughly doubles on average. Keep in mind that RAID 0 doesn't provide redundancy. So in situations that require redundancy, you should use one of RAID levels 1, 2, 4, 6, or 10. As you might guess, explaining all the RAID levels would make this article far too long, so I wanted to demonstrate LVM's RAID support using only the striping configuration. You can check the sources section for details on the other levels.
 
 ## LVM Snapshots
-LVM'in snapshot özelliği Red Hat Dokümantasyon sitesinde yazdığı gibi, bir cihazın belirli bir andaki sanal görüntülerini, herhangi bir hizmet kesintisine yol açmadan oluşturma imkanı sağlar. Snapshot alındıktan sonra orijinal (origin) cihazda bir değişiklik yapıldığında, snapshot özelliği değiştirilen veri alanının değişiklikten önceki halinin bir kopyasını oluşturur; böylece aygıtın önceki durumu yeniden yapılandırılabilir.[^5]
+As stated on the Red Hat documentation site, LVM's snapshot feature makes it possible to create virtual images of a device at a particular point in time, without causing any service interruption. After a snapshot is taken, when a change is made to the original (origin) device, the snapshot feature creates a copy of the changed data area as it was before the change; this way, the device's previous state can be reconstructed.[^7]
 
-Snapshot'lar hakkında bilinmesi gereken en önemli şey, snapshot'ların bir yedekleme yöntemi olmamasıdır. Snapshot, belirli bir zamandaki duruma dönmenizi (rollback) sağlar. Fakat bunun sebebi verilerin tamamını kopyalamamız değildir. Aslında yaptığımız şey, orijinal veride zaman içinde meydana gelen değişiklikleri kopyalamaktır. Bu işleme "COW", yani "Copy on Write" deniliyor. Bir LV'de değişiklik yapmadan önce, değişiklik yapılacak verinin değiştirilmemiş/orijinal hali snapshot alanına kopyalanır ve ardından asıl değişiklik orijinal verinin üzerinde gerçekleştirilir. Daha sonra bu snapshot'dan "rollback" yapmak istediğimizde, snapshot alanında saklanan bu orijinal bloklar, orijinal LV üzerine geri yazılır ve böylece "rollback" yapmış oluruz. Yani snapshot'ların bir yedekleme yöntemi olmamasının sebebi, tüm veriyi tutması değil, sadece farkı tutmasıdır. Aşağıda yaptığım *harika* animasyonla bu işlemi görebilirsiniz.
-
-
+The most important thing to know about snapshots is that they aren't a backup method. A snapshot lets you roll back to a state at a particular point in time. But this isn't because we copy all of the data. What we actually do is copy the changes that occur to the original data over time. This process is called "COW," or "Copy on Write." Before a change is made to an LV, the unmodified/original version of the data that is about to be changed is copied to the snapshot area, and then the actual change is carried out on the original data. Later, when we want to "roll back" from this snapshot, these original blocks stored in the snapshot area are written back onto the original LV, and this is how we perform the "rollback." So the reason snapshots aren't a backup method isn't that they don't hold all the data, but that they only hold the difference. You can see this process in the *amazing* animation I made below.
 {% include video-loop.html src="/assets/videos/lvm/snapshot.mp4" class="video-loop--medium" %}
-Gördüğünüz gibi snapshot'ların bir yedekleme yöntemi olmamasının sebebi, tüm veriyi tutması değil, sadece farkı tutmasıdır. Ayrıca bir snapshot, ait olduğu orijinal LV ile aynı Volume Group içinde, dolayısıyla aynı fiziksel disk(ler) üzerinde bulunduğundan, bu disk arızalanırsa, hem orijinal veri hem de snapshot birlikte kaybolur.
+As you can see, the reason snapshots aren't a backup method is that they don't hold all the data, but only the difference. Also, since a snapshot resides in the same Volume Group as, and therefore on the same physical disk(s) as, the original LV it belongs to, if that disk fails, both the original data and the snapshot are lost together.
 
-Tahmin edebileceğiniz gibi, "COW" işlemi yazma performansını etkiler. Bu etki sadece bir bloğa ilk kez değişiklik yapıldığında oluşur çünkü aynı blok tekrar değiştirilirse, o blok içindeki orijinal veri zaten snapshot'a kopyalanmış olduğundan, sonraki yazmalar kopyalama adımını tekrarlamaz. Fakat birden fazla snapshot aktifse, her biri için bu işlem tekrarlanacağından performans daha da düşer.
+As you might guess, the "COW" process affects write performance. This effect only occurs the first time a block is modified, because if the same block is modified again, the original data within that block has already been copied to the snapshot, so subsequent writes don't repeat the copy step. However, if more than one snapshot is active, this process is repeated for each one, so performance drops even further.
 
-LVM Snapshot almanın Thick Provisioning ve Thin Provisioning olmak üzere 2 farklı yöntemi vardır. Thick provisioning, klasik, daha eski bir yöntemdir. Bu yöntemde snapshot oluştururken, snapshot'ımızın boyutunu önceden belirliyoruz ve bu alan, VG'den anında ayrılıyor. İçine hiç veri yazmasak bile, VG'deki bu alan dolu görünür ve başka bir LV bunu kullanamaz. Yaptığımız değişiklikler, snapshot'ın alanı dolana kadar kaydediliyor. Snapshot alanı belirli bir doluluk oranına ulaştığında, sistem log'larına uyarı düşer. Bu uyarı dikkate alınmazsa ve alan tamamen dolarsa, snapshot geçersiz (invalid) hale gelir çünkü origin volume'deki değişiklikleri artık kaydedemez. Bu yüzden snapshot'larınızın doluluk oranını düzenli olarak kontrol etmelisiniz.
+There are 2 different methods of taking an LVM snapshot: Thick Provisioning and Thin Provisioning. Thick provisioning is the classic, older method. In this method, when creating a snapshot, we determine our snapshot's size in advance, and this space is allocated from the VG immediately. Even if we never write any data into it, this space in the VG appears as used, and no other LV can use it. The changes we make are recorded until the snapshot's space fills up. When the snapshot's space reaches a certain fill level, a warning is logged to the system logs. If this warning is ignored and the space fills up completely, the snapshot becomes invalid, because it can no longer record changes made to the origin volume. That's why you should regularly check the fill level of your snapshots.
 
-Thin provisioning ise klasik thick yaklaşımından tamamen farklıdır. Thin provisioning, LVM'de disk alanını "gerçekte kullanılan kadar" tahsis etme mantığıyla çalışan bir depolama yöntemidir. Snapshot oluştururken boyut belirtmeye gerek yoktur. Snapshot alanını önceden ayırmak yerine, önce bir thin pool oluşturulur. Snapshot'lar, origin volume'de değişiklik oldukça bu pool'dan ihtiyacı kadar alan kullanır. Bu sayede snapshot alma işlemi başlangıçta neredeyse hiç yer kaplamaz.
+Thin provisioning, on the other hand, is completely different from the classic thick approach. Thin provisioning is a storage method in LVM that works on the logic of allocating disk space "only as much as is actually used." There's no need to specify a size when creating a snapshot. Instead of reserving snapshot space in advance, a thin pool is created first. As changes occur on the origin volume, snapshots use as much space as they need from this pool. This way, taking a snapshot takes up almost no space at the start.
 
-Ancak bu yöntemin bazı riskleri var. Klasik, Thick provisioning'de her snapshot kendi alanına sahipken, thin provisioning'de tüm snapshot'lar aynı pool'u paylaşır. Bu yüzden tek bi snapshot'ın değil, pool'un genel doluluk oranının izlenmesi gerekir. Pool tamamen dolarsa, o pool'a bağlı tüm LV'ler ve snapshot'lar için yazma işlemi başarsız olabilir.
+However, this method carries certain risks. In classic thick provisioning, each snapshot has its own space, whereas in thin provisioning, all snapshots share the same pool. So instead of monitoring a single snapshot, you need to monitor the overall fill level of the pool. If the pool fills up completely, write operations may fail for all LVs and snapshots tied to that pool.
 
-LVM Snapshot oluşturma işlemini klasik olan thick provisioning yöntemiyle göstereceğim. Bu yazıyı gereğinden fazla uzatmamak ve daha detaylı anlatmak için thin provisioning yöntemini ayrı bir gönderide anlatacağım.
+I'll demonstrate the LVM snapshot creation process using the classic thick provisioning method. To avoid making this article longer than necessary, and to cover it in more detail, I'll explain the thin provisioning method in a separate post.
 
-`lvs` komutu ile LV'lerimizi görelim.
+Let's take a look at our LVs using the lvs command.
 <img src="/assets/images/lvm/snap_lvs.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-`lv_data1` LV'si 49 GiB boyutunda ve `vg_base` VG'sine ait. Bu LV'nin 10GiB boyutunda bir snapshot'ını oluşturmak istiyoruz. Bildiğiniz gibi thick provisioning yöntemiyle snapshot oluşturduğumuzda, alan anında tahsis ediliyor. Bu yüzden önce VG'mizdeki boş alanı kontrol etmeliyiz.
+The `lv_data1` LV is 49 GiB in size and belongs to the `vg_base` VG. We want to create a 10GiB snapshot of this LV. As you know, when we create a snapshot using the thick provisioning method, the space is allocated immediately. So we first need to check the free space in our VG.
 <img src="/assets/images/lvm/snap_vgs.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-Gördüğünüz gibi `vg_base`, 10GiB'lık bir snapshot oluşturmak için uygun. Şimdi `lv_data1`'in bağlanma noktasını `lsblk /dev/vg_base/lv_data1` komutuyla öğrenelim.
+As you can see, `vg_base` is suitable for creating a 10GiB snapshot. Now let's find out `lv_data1`'s mount point using the `lsblk /dev/vg_base/lv_data1` command.
 <img src="/assets/images/lvm/snap_lsblk.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-Daha sonra yapacağımız değişiklikleri karşılaştırabilmek için, önce bu bağlanma noktasındaki mevcut veriye `ls` ve `cat` komutuyla bakalım.
+First, let's take a look at the current data at this mount point using the `ls` and `cat` commands, so we can compare it with the changes we'll make later.
 <img src="/assets/images/lvm/originalfile.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">  
-`/data1`'de "original_file" adında bir dosyamız var. Birazdan LV'mizin snapshot'ını oluşturduktan sonra bu dosyanın içeriğini değiştereceğiz ve yeni bir dosya ekleyeceğiz.
+We have a file named "original_file" in `/data1`. Shortly, after creating a snapshot of our LV, we'll change this file's content and add a new file.
 
-Şimdi `lv_data1` LV'sinin snapshot'ını oluşturabiliriz. Başlamadan önce bilmeniz gereken şey, snapshot'ın LVM'de özel bir LV türü  olmasıdır. Snapshot almak için ayrı, özel bir komut bulunmaz çünkü snapshot da LVM yönetiminde bir LV olarak ele alınır. Bu yüzden kullanacağımız komut `lvcreate` 
+Now we can create a snapshot of the `lv_data1` LV. Before we start, you should know that a snapshot is a special LV type in LVM. There's no separate, dedicated command for taking a snapshot, because a snapshot is also treated as an LV under LVM management. So the command we'll use is `lvcreate`.
 
-Kullanım: `lvcreate -L <boyut> -s -n <snapshot_ismi> <origin_lv_yolu>`
+Syntax: `lvcreate -L <size> -s -n <snapshot_name> <origin_lv_path>`
 
-`-L`: Oluşturulacak LV'nin (bu durumda snapshot'ın COW alanının) boyutu. 
+`-L`: The size of the LV to be created (in this case, the snapshot's COW area).
 
-`-s`: Snapshot flag. LVM'e bu LV'nin normal bir LV değil, snapshot olacağını belirtir.
+`-s`: The snapshot flag. Tells LVM that this LV will be a snapshot, not a regular LV.
 
-`-n lv_data1_snap`: Oluşturulacak snapshot'a verilecek isim.
+`-n lv_data1_snap`: The name to be given to the snapshot being created.
 
-`/dev/vg/base/lv_data1`: Origin volume yani snapshot'ı alınacak asıl LV'nin tam yolu.
+`/dev/vg_base/lv_data1`: The origin volume, i.e., the full path of the actual LV the snapshot is being taken of.
 
-Komut: `lvcreate -L 10G -s -n lv_data1_snap /dev/vg_base/lv_data1`
+Command: `lvcreate -L 10G -s -n lv_data1_snap /dev/vg_base/lv_data1`
 <img src="/assets/images/lvm/snap_lvcreate.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-Şimdi tekrar lvs komutunu kullanarak LV'lerimize bakalım.
+Now let's take another look at our LVs using the `lvs` command again.
 <img src="/assets/images/lvm/snap_lvs2.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-`lv_data1` LV'sinin snapshot'ını oluşturduk. Attributes kısmında gördüğünüz "o" harfi origin LV'yi, "s" harfiyse snapshot LV'yi belirtiyor. Origin stünunda gördüğünüz gibi `lv_data1_snap`, `lv_data1`'i gösteriyor. (`lv_stripe` kısmında gördüğünüz "r" ise RAID yapılandırmasını belirtiyor.)
+We've created a snapshot of the `lv_data1` LV. The "o" you see in the Attributes column indicates the origin LV, while the "s" indicates the snapshot LV. As you can see in the Origin column, `lv_data1_snap` points to `lv_data1`. (The "r" you see for `lv_stripe` indicates the RAID configuration that we made before.)
 
-Snapshot'ımızın origin volume de yaptığımız değişiklikleri kaydetmesi için mount etmemiz gerekiyor. 
-Bağlama noktasını oluşturalım.
+For our snapshot to record the changes we make to the origin volume, we need to mount it.
+
+Let's create the mount point.
 
 `mkdir -p /snapshot`
 
-Bu noktaya snapshot'ımızı bağlayalım.
+Let's mount our snapshot to this point.
 
 `mount /dev/vg_base/lv_data1_snap /snapshot`
 
-`lv_data1_snap`'in içeriğine aynı komutlarla bakalım.
+Let's take a look at `lv_data1_snap`'s content using the same commands.
 <img src="/assets/images/lvm/snapshotls.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-Gördüğünüz gibi `/data1`'deki, yani origin LV olan `lv_data1`'deki veri, snapshot'ımızda da aynı şekilde görünüyor. Bu durum sizi yanıltmasın çünkü bildiğiniz gibi snapshot'ta gördüğümüz "original_file", aslında snapshot'ın kendi alanında tutulan bir kopya değil. Sadece okuma isteği `/data1`'e yönlendirildiği için görünüyor. Birazdan origin'de değişiklik yaptığımız anda ise COW mekanizması devreye girecek ve değişecek olan bloğun eski hali, üzerine yazılmadan önce `/snapshot` alanına kopyalanacak. 
-
-Şimdi `/data1` üzerindeki "original_file" dosyasında değişiklik yapıyoruz.
+As you can see, the data in `/data1` (i.e., in the origin LV `lv_data1`) appears the same way in our snapshot too. Don't let this mislead you though. Because as you know, the "original_file" we see in the snapshot isn't actually a copy stored in the snapshot's own space. It only appears because the read request is redirected to `/data1`. The moment we make a change to the origin, the COW mechanism will kick in, and the old version of the block about to change will be copied to the `/snapshot` area before being overwritten.
+Now we're making a change to the "original_file" file on `/data1.`
 <img src="/assets/images/lvm/modified.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-Böylece artık "original_file", gerçek anlamda snapshot'ın kendi alanında tutulan bir kopya haline geldi. Aşağıya bakıldığında bir değişiklik yok ama bu artık orjinal dosyanın bir kopyası.
+After making this change, "original_file" has now truly become a copy stored in the snapshot's own space. It's not redirecting the read request and showing tha data now.
 <img src="/assets/images/lvm/snapshotreal.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+Don't let the fact that I changed both the name of the "original_file" file and its content in this example make you think LVM snapshot operates at the file level. LVM snapshot doesn't operate at the file level, but at the block level. I used this approach so you could clearly see the difference and follow along more easily.
 
-Bu örnekte hem original_file dosyasının adını hem de içeriğini değiştirdim. Fakat unutmayın ki, LVM snapshot dosya seviyesinde değil, blok seviyesinde çalışıyor. Farkı net şekilde görebilmeniz ve takipin kolaylığı için bu yöntemi kullandım.
+We can now perform a rollback from the LVM snapshot using the `lvconvert` command. We have to unmount the origin and the snapshot first. 
 
-Artık LVM snapshot'dan geri yükleme (rollback) yapabiliriz. Önerilen yöntem olarak ilk önce origin ve snapshot'ı unmount edeceğiz.
+Command 1: `umount /data1`
 
-`umount /data1`
+Command 2: `umount /snapshot`
 
-`umount /snapshot`
+After this, we can begin the rollback process.
 
-Ardından rollback işlemine başlayabilirz
+Syntax: `lvconvert --merge /dev/<vg_name>/<snapshot_LV>`
 
-Kullanım: `lvconvert --merge /dev/<vg_name>/<snapshot_LV>`
+Command: `lvconvert --merge /dev/vg_base/lv_data1_snap`
 
-Komut: `lvconvert --merge /dev/vg_base/lv_data1_snap`
 <img src="/assets/images/lvm/lvconvert.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
+After the process, let's mount the origin again.
 
-İşlem tamamlandıktan sonra origin'i tekrar mount edelim.
-
-Komut: `mount /dev/vg_base/lv_data1 /data1`
-
-Kontrol ettiğimizde, adını ve içeriğini değiştirdiğimiz dosyanın, snapshot alındığı andaki orjinal haline geri döndüğünü görüyoruz.
+Command: `mount /dev/vg_base/lv_data1 /data1`
 <img src="/assets/images/lvm/convertoriginal.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-`lvs` komutunu çalıştırarak LV'lerimizi görelim.
+Let's run the `lvs` command to view our LVs.
 <img src="/assets/images/lvm/lvsnew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-Artık `lv_data1_snap` adlı snapshot'ımız yok çünkü merge işlemi tamamlandıktan sonra otomatik olarak snapshot'ımız siliniyor.
+Our snapshot named `lv_data1_snap` no longer exists, because once the merge operation completes, our snapshot is automatically deleted.
 
-Böylece bu gönderinin sonuna geldik. İlk gönderim olan LVM konusunu olabildiğince ayrıntılı hazırlamaya çalıştım. Yazıyı gereğinden fazla uzatmamak ve takibin kolaylığı için yeterince değinmediğim veya yüzeysel geçtiğim bazı detayların olduğunun farkındayım. Bu detayları ilerleyen LVM yazılarımda daha derinlemesine anlatacağım. Kullandığım kaynaklara aşağıdan ulaşabilirsiniz. Okuduğunuz için teşekkür ederim.
+With that, we've reached the end of this post. As my first post, I tried to cover the topic of LVM in as much detail as I could. I'm aware there are some details I didn't get into fully, in order to keep the article from running longer than necessary and to make it easier to follow. I'll cover these details more deeply in my future LVM posts. You can find the sources I used below. Thanks for reading.
 
-## Kaynaklar
+## Sources
 
 [^1]: [Red Hat Documentation: Configuring and Managing Logical Volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_logical_volumes/overview-of-logical-volume-management_configuring-and-managing-logical-volumes)
-[^2]: Stacey Peterson, [What is gibibyte (GiB)?](https://www.techtarget.com/it-infrastructure/definition/gibibyte-GiB), TechTarget, 2023.
-[^3]: [Red Hat Documentation: Appendix E. LVM Volume Group Metadata](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/logical_volume_manager_administration/lvm_metadata)
-[^4]: [Red Hat Documentation: Chapter 9. Configuring RAID logical volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_logical_volumes/configuring-raid-logical-volumes_configuring-and-managing-logical-volumes)
-[^5]: [Red Hat Documentation: 3.3.6. Snapshot Volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/6/html/logical_volume_manager_administration/snapshot_volumes)
+[^2]: [Red Hat Documentation: 2.1.2. Multiple Partitions on a Disk](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/logical_volume_manager_administration/lvm_components#multiple_partitions)
+[^3]: Stacey Peterson, [What is gibibyte (GiB)?](https://www.techtarget.com/it-infrastructure/definition/gibibyte-GiB), TechTarget, 2023.
+[^4]: [Red Hat Documentation: Appendix E. LVM Volume Group Metadata](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/logical_volume_manager_administration/lvm_metadata)
+[^5]: [Red Hat Documentation: Chapter 11. Controlling LVM allocation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_logical_volumes/assembly_controlling-lvm-allocation-configuring-and-managing-logical-volumes)
+[^6]: [Red Hat Documentation: Chapter 9. Configuring RAID logical volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_logical_volumes/configuring-raid-logical-volumes_configuring-and-managing-logical-volumes)
+[^7]: [Red Hat Documentation: 3.3.6. Snapshot Volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/6/html/logical_volume_manager_administration/snapshot_volumes)
 
