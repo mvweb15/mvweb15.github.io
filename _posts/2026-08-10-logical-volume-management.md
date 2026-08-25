@@ -121,7 +121,7 @@ Before we start examining the VG, let's take another look at the details of the 
 
 4: No space has been allocated from this disk yet.
 We can better see the difference by comparing our two PVs.
-<img src="/assets/images/lvm/vgeklenmis2.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
+<img src="/assets/images/lvm/updatedvgoutput.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
 As you can see, after being added to the VG, the PV `/dev/sdb1` has been divided into 12799 blocks of 4.00 MiB in size. The PV `/dev/sdc1`, on the other hand, hasn't been divided into blocks yet since it hasn't been added to a VG. Now let's examine the VG we created using the `vgdisplay` command.
 <img src="/assets/images/lvm/vgdisplaynew.png" alt="vg" class="post-img post-img--left" style="max-width: 650px;">
 1: The VG's name.
@@ -592,7 +592,7 @@ Our snapshot named `lv_data1_snap` no longer exists, because once the merge oper
 
 With that, we've reached the end of this post. As my first post, I tried to cover the topic of LVM in as much detail as I could. I'm aware there are some details I didn't get into fully, in order to keep the article from running longer than necessary and to make it easier to follow. I'll cover these details more deeply in my future LVM posts. You can find the sources I used below. Thanks for reading.
 
-## Sources
+## References
 
 [^1]: [Red Hat Documentation: Configuring and Managing Logical Volumes](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_logical_volumes/overview-of-logical-volume-management_configuring-and-managing-logical-volumes)
 [^2]: [Red Hat Documentation: 2.1.2. Multiple Partitions on a Disk](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/logical_volume_manager_administration/lvm_components#multiple_partitions)

@@ -1,5 +1,8 @@
 {% assign hero_title = include.title | strip %}
 <header class="hero hero--{{ include.size | default: 'small' }}" style="background-image: url('{{ include.cover | default: site.default_cover | relative_url }}');">
+  {% if include.size == 'full' %}
+    <span class="site-brand">{{ site.title }}</span>
+  {% endif %}
   {% if hero_title != empty %}
     <div class="hero__inner">
       {% if include.logo %}

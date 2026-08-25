@@ -833,21 +833,23 @@ html[data-theme="dark"] .theme-toggle__icon--sun { display: none; }
 
 /* ---------- Site adı (sol üst, sabit) ---------- */
 .site-brand {
-  position: fixed;
-  top: 1.5rem;
-  left: 1.5rem;
-  z-index: 30;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.4rem;
+  font-size: 3.4rem;
   color: #fff;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  pointer-events: none;
+  text-align: center;
+  white-space: nowrap;
 }
 
 @media (max-width: 600px) {
   .site-brand {
-    top: 1rem;
-    left: 1rem;
-    font-size: 1.1rem;
+    font-size: 1.8rem;
+    white-space: normal;
   }
 }
