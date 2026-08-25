@@ -1,8 +1,7 @@
 ---
 layout: default
 ---
-{% include hero.html size="full" title=site.title subtitle=site.description cover=page.cover %}
-
+{% include hero.html size="full" cover=page.cover %}
 <div class="post-list">
   {% for post in paginator.posts %}
     {% include post-card.html post=post %}
