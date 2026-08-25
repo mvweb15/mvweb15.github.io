@@ -24,12 +24,13 @@
     <button class="site-nav__close" id="menu-close" aria-label="Menüyü kapat">&times;</button>
   </div>
   <ol class="site-nav__list">
-    <li><a href="{{ '/' | relative_url }}">Anasayfa</a></li>
-    <li><a href="{{ '/tag/lvm/' | relative_url }}">LVM</a></li>
-    <li><a href="{{ '/tag/nginx/' | relative_url }}">Nginx</a></li>
-    <li><a href="{{ '/tag/cisco/' | relative_url }}">Cisco</a></li>
-  </ol>
-  <a class="site-nav__contact" href="{{ '/about/' | relative_url }}">İletişim</a>
+  <li><a href="{{ '/' | relative_url }}">Home</a></li>
+  {% assign sorted_tags = site.tags | sort %}
+  {% for tag in sorted_tags %}
+    <li><a href="{{ site.baseurl }}/tag/{{ tag[0] | slugify }}/">{{ tag[0] | capitalize }}</a></li>
+  {% endfor %}
+</ol>
+  <a class="site-nav__contact" href="{{ '/about/' | relative_url }}">Contact</a>
 </nav>
 <div class="site-nav__overlay" id="site-nav-overlay"></div>
 <div class="post-toc__overlay" id="post-toc-overlay"></div>
