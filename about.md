@@ -4,7 +4,7 @@ permalink: /about/
 cover: /assets/images/cover-about.jpg
 ---
 
-## İletişim
+## Contact
 
 
 mvlutblt@gmail.com

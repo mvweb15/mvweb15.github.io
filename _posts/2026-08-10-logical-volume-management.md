@@ -522,7 +522,7 @@ However, this method carries certain risks. In classic thick provisioning, each 
 
 I'll demonstrate the LVM snapshot creation process using the classic thick provisioning method. To avoid making this article longer than necessary, and to cover it in more detail, I'll explain the thin provisioning method in a separate post.
 
-Let's take a look at our LVs using the lvs command.
+Let's take a look at our LVs using the `lvs` command.
 <img src="/assets/images/lvm/snap_lvs.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
 The `lv_data1` LV is 49 GiB in size and belongs to the `vg_base` VG. We want to create a 10GiB snapshot of this LV. As you know, when we create a snapshot using the thick provisioning method, the space is allocated immediately. So we first need to check the free space in our VG.
 <img src="/assets/images/lvm/snap_vgs.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
