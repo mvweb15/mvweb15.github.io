@@ -94,7 +94,28 @@ window.addEventListener("pageshow", function (event) {
     return;
   }
 
+  // Build a collapsible TOC: every H2 is a group, its H3s are hidden until the group is opened.
   var links = [];
+  var groups = [];
+  var currentGroup = null;
+
+  function newGroup(a) {
+    var el = document.createElement("div");
+    el.className = "toc-group";
+    var head = document.createElement("div");
+    head.className = "toc-group__head";
+    var sub = document.createElement("div");
+    sub.className = "toc-group__sub";
+    a.classList.add("toc-h2");
+    head.appendChild(a);
+    el.appendChild(head);
+    el.appendChild(sub);
+    tocNav.appendChild(el);
+    var g = { el: el, link: a, sub: sub, children: [] };
+    groups.push(g);
+    return g;
+  }
+
   headings.forEach(function (heading, index) {
     if (!heading.id) {
       heading.id = "section-" + index;
@@ -102,10 +123,40 @@ window.addEventListener("pageshow", function (event) {
     var a = document.createElement("a");
     a.href = "#" + heading.id;
     a.textContent = heading.textContent;
-    if (heading.tagName === "H3") a.classList.add("toc-h3");
-    tocNav.appendChild(a);
-    links.push({ link: a, target: heading });
+    if (heading.tagName === "H3" && currentGroup) {
+      a.classList.add("toc-h3");
+      currentGroup.sub.appendChild(a);
+      currentGroup.children.push(a);
+    } else {
+      currentGroup = newGroup(a);
+    }
+    links.push({ link: a, target: heading, group: currentGroup });
   });
+
+  groups.forEach(function (g) {
+    if (g.children.length) {
+      g.el.classList.add("has-children");
+      g.link.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  function setGroupOpen(g, open) {
+    g.el.classList.toggle("is-open", open);
+    if (g.children.length) g.link.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function openOnly(target) {
+    groups.forEach(function (g) {
+      setGroupOpen(g, g === target && g.children.length > 0);
+    });
+  }
+
+  function findItem(a) {
+    for (var i = 0; i < links.length; i++) {
+      if (links[i].link === a) return links[i];
+    }
+    return null;
+  }
 
   var manualOverride = null;
 
@@ -150,18 +201,31 @@ window.addEventListener("pageshow", function (event) {
   }
 
   tocNav.addEventListener("click", function (e) {
-    if (e.target.tagName === "A") {
-      e.preventDefault();
-      var id = e.target.getAttribute("href").slice(1);
-      var el = document.getElementById(id);
-      if (el) {
-        links.forEach(function (item) {
-          item.link.classList.toggle("is-active", item.link === e.target);
-        });
-        manualOverride = e.target;
-        closeToc();
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
+    var a = e.target.closest("a");
+    if (!a) return;
+    e.preventDefault();
+    var item = findItem(a);
+    if (!item) return;
+
+    // A part with sub-headings: clicking it only opens / closes its list.
+    if (item.group.link === a && item.group.children.length) {
+      if (item.group.el.classList.contains("is-open")) {
+        setGroupOpen(item.group, false);
+      } else {
+        openOnly(item.group);
       }
+      updateActive();
+      return;
+    }
+
+    var el = document.getElementById(a.getAttribute("href").slice(1));
+    if (el) {
+      links.forEach(function (it) {
+        it.link.classList.toggle("is-active", it.link === a);
+      });
+      manualOverride = a;
+      closeToc();
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   });
 
@@ -197,9 +261,19 @@ window.addEventListener("pageshow", function (event) {
 
     lastActiveIndex = candidateIndex;
 
+    var activeGroup = links[lastActiveIndex].group;
     links.forEach(function (item, idx) {
       item.link.classList.toggle("is-active", idx === lastActiveIndex);
     });
+    var activeLink = links[lastActiveIndex].link;
+    groups.forEach(function (g) {
+      var inside = g === activeGroup && activeLink !== g.link;
+      var closed = !g.el.classList.contains("is-open");
+      g.link.classList.toggle("is-parent-active", inside && !closed);
+      // Part is collapsed: the blue marker sits on the part until it is opened.
+      g.link.classList.toggle("is-active", activeLink === g.link || (inside && closed));
+    });
+
   }
 
   function onScroll() {
@@ -261,5 +335,3 @@ document.addEventListener("DOMContentLoaded", function () {
     overlay.classList.remove("is-open");
   });
 });
-
-

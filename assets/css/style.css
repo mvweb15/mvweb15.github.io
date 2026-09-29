@@ -374,6 +374,7 @@ html[data-theme="dark"] .theme-toggle__icon--sun { display: none; }
 .post-img {
   display: block;
   margin: 1rem auto;
+  max-width: min(var(--w, 100%), 100%);
 }
 
 .post-img--small { max-width: 320px; }
@@ -716,8 +717,7 @@ html[data-theme="dark"] .theme-toggle__icon--sun { display: none; }
   }
 
   .post-img {
-    max-width: 100% !important;
-    width: 100%;
+    max-width: min(var(--mobile-w, var(--w, 100%)), 100%) !important;
     height: auto;
   }
 }
@@ -853,4 +853,50 @@ html[data-theme="dark"] .theme-toggle__icon--sun { display: none; }
     font-size: 1.8rem;
     white-space: normal;
   }
+}
+
+/* ---------- Collapsible TOC (parts open / close) ---------- */
+.post-toc {
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+}
+
+.post-toc__nav a.toc-h2 {
+  white-space: normal;
+  overflow: visible;
+}
+
+.toc-group__sub { display: none; }
+.toc-group.is-open .toc-group__sub { display: block; }
+
+.toc-group.has-children > .toc-group__head a {
+  position: relative;
+  padding-right: 1.4rem;
+  cursor: pointer;
+}
+
+.toc-group.has-children > .toc-group__head a::after {
+  content: "";
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.toc-group.is-open > .toc-group__head a::after {
+  transform: translateY(-30%) rotate(-135deg);
+}
+
+.post-toc__nav a.is-parent-active {
+  color: var(--text);
+}
+
+@media (max-width: 600px) {
+  .post-toc { max-height: 80vh; }
+  .post-toc__nav a.is-parent-active { color: #fff; }
 }
