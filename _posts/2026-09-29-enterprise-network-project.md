@@ -172,19 +172,19 @@ PAgP, a Cisco proprietary protocol was used for this L3 EtherChannel. Both switc
 
 You might be wondering why I configured Rapid PVST+ after the IP addressing part and not Part 2. This is because the placement of the Root Bridge in this network design depends on the HSRP Active switch of a particular VLAN. Therefore, I had to decide this in the HSRP part and then configure Rapid PVST+.
 
-If HSRP and Rapid PVST+ configurations are not done correctly, traffic does not follow the best path. For example, if HSRP Active for a particular VLAN is DSW_A1 while the Root Bridge is DSW_A2, all traffic has to pass through DSW_A2 at Layer 2 since it is the Root Bridge and then travel to DSW_A1 as the Layer 3 Gateway. This is an unnecessary extra hop, added latency, and extra load on the link.
+If HSRP and Rapid PVST+ are misconfigured, traffic will not be routed via the optimal path. For instance, if HSRP Active for a specific VLAN is DSW_A1 and the Root Bridge is DSW_A2, all traffic must go through DSW_A2 because it is the Root Bridge. This is an extra hop that is not necessary and results in latency and extra load on the link.
 
 {% include video-loop.html src="/assets/images/enp/25_pvstp_video.mp4" class="video-loop--medium" %}
+VLANs 100, 110, 140, and 199 would be Active on DSW_A1 according to the HSRP priorities I configured before. VLANs 120, 130, and 150 would be Active on DSW_A2. In order to keep Layer 2 and Layer 3 in sync, I configured DSW_A1 as Root Bridge for its own VLAN group and Secondary Root for the other VLAN group. DSW_A2 was configured the other way round. On Access switches, I only changed their STP mode to Rapid PVST+. The priority of leaf switches remained unchanged since they were not supposed to become root.
 
-Based on the HSRP priorities I configured earlier, VLANs 100, 110, 140 and 199 will be Active on DSW_A1. VLANs 120, 130, and 150 will be Active on DSW_A2. In order to maintain the synchronization between Layer 2 and Layer 3, I configured DSW_A1 as Root Bridge for its own VLAN group and Secondary Root for the other VLAN group. DSW_A2 was configured vice versa. On Access switches, I only changed their STP mode to Rapid PVST+ for consistency. Priority of leaf switches was left unchanged because they are not meant to become root.
+PortFast and BPDU Guard have been configured for all end-host and server ports. In Rapid PVST+, the port takes a few seconds before it reaches the forwarding state. PortFast bypasses the entire process; hence, the port goes into the forwarding state straight away because there is no possibility of any loop formed by the end-hosts and servers. The configuration of BPDU Guard was done because in case any BPDU is detected on the ports, then the port will be shut down instantly.
 
-I enabled PortFast and BPDU Guard on every end-host and server port. In Rapid PVST+, a port takes a few seconds to get to forwarding state. PortFast even skips this step, therefore the port moves to forwarding state immediately because end-hosts and servers cannot create a loop. I configured BPDU Guard because if a BPDU is ever seen on one of these ports, then the port will be immediately err-disabled.
+Configuration of DMZ_SW1 was the same even though Firewall-2’s DMZ interfaces are shut down. DMZ_SW1 is the only switch in the DMZ. Because of this, there is no loop to manage. However, I still configured Rapid PVST+ mode, PortFast, and BPDU Guard on DMZ_SW1’s server-facing ports for consistency.
 
-Configuration of DMZ_SW1 was the same even though Firewall-2's DMZ interfaces are shut down. DMZ_SW1 is the only switch in the DMZ. Because of this, there is no loop to manage. However, I still configured Rapid PVST+ mode, PortFast, and BPDU Guard on DMZ_SW1's server-facing ports for consistency.
-
-WLC_A, WLC_B and the access points are an exception since they connect over trunk ports. I used the command `spanning-tree portfast trunk` rather than the usual command, since the usual one has no effect on trunk ports. PortFast and BPDU Guard were not enabled on inter-switch connections like DSW-to-ASW trunk links, CSW uplinks, and EtherChannel members, as these connections could actually create loop formations. This way the proper operation of Rapid PVST+ can be maintained.
+WLC_A, WLC_B and the access points are an exception since they connect over trunk ports. I used the command spanning-tree portfast trunk rather than the usual command, since the usual one has no effect on trunk ports. PortFast and BPDU Guard were not enabled on inter-switch connections like DSW-to-ASW trunk links, CSW uplinks, and EtherChannel members, as these connections could actually create loop formations. This way the proper operation of Rapid PVST+ can be maintained.
 
 Both Layer 2 and Layer 3 redundancy are now synchronized, ensuring that all VLAN traffic travels through the most efficient path. Additionally, PortFast and BPDU Guard for end-host ports improved user connectivity speed while providing security against unauthorized switches being plugged in.
+
 
 ## Part 5 - OSPF
 
@@ -192,8 +192,7 @@ This part got a bit long because I encountered a Packet Tracer limitation while 
 
 I used multi-area instead of a single Area 0. Area 0 covers the Firewall links, the Core switches, the EtherChannel between them and VLAN 300. Area 10 is Office A, Area 20 is Office B, so the Core switches end up as ABRs. In production a network this size would just use one area. I picked multi-area on purpose, and built it this way to show how it would work at scale.
 
-Router IDs are manually configured from loopbacks. Otherwise OSPF picks one on its own, and that ID can change the next time the process restarts, which resets the adjacencies. Auto-cost reference-bandwidth 10000 is configured on all devices to enable OSPF to differentiate between the link speeds. Every user SVI, VLAN 300, every loopback and the Core switches' firewall-facing ports are passive. MD5 with OSPFKEY123 is configured in all three areas, and the /30 links have ip ospf network point-to-point because there is no need for DR/BDR on the link.
-
+Router IDs are statically assigned using loopbacks. Otherwise, the router would select its own automatically, but then this ID could be different when the router reboots again. The command auto-cost reference-bandwidth 10000 is enabled in all routers in order to make OSPF able to distinguish the speeds of links. All users SVI, VLAN 300, all loopbacks and the firewall interfaces of core switches are passive. MD5 authentication with the password OSPFKEY123 is enabled in all three areas and the /30 links have ip ospf network point-to-point configuration since there is no need to elect the DR/BDR on this link.
 ### Route Summarization
 
 As a reminder from the IP addressing part, each office has a /22 block, and every VLAN in it fits inside the first half of that block. That means Office A can be summarized as 172.16.0.0/23 and Office B as 172.16.4.0/23. This is a design choice because it allows summarization. Therefore, the rest of Area 0 will not have to know every VLAN subnet in each office. It will be enough for Area 0 to have one route for each office. The ABR devices, in this case, the Core switches, will have information about all routes, while everything else will not.
@@ -202,10 +201,9 @@ However, you cannot actually see the advantage in this network since I do not us
 
 Still, for a network that has many more Cores and Distribution switches than the one that I have designed, this is where the benefits start to pay off. Instead of having all the exact routes in every office, each Core will just have a few summaries. This is the reason why I built it this way, to show again how it would work at scale.
 
-The plan was for this to work with the per-VLAN cost design. Summarization keeps the tables small at the area boundary. The SVI costs decide which Distribution switch each VLAN uses. With this configuration every VLAN ends up on its own switch with a clean, minimal routing table behind it. The summarization part works exactly as I intended. The cost part is where Packet Tracer got in the way.
+The plan was for this to work with the per-VLAN cost design. Summarization helps to keep the routing tables smaller at the area boundaries. The cost values of the SVIs define which Distribution switch would serve each VLAN. This solution makes all VLANs connect to one switch each with a routing table minimized. The summarization procedure works just as I planned it. The problem with the cost-based strategy is caused by Packet Tracer.
 
-In Part 4 I split the VLANs across the two Distribution switches, which sorts out traffic leaving the office. However when a Core switch routes a packet into a VLAN it sees two paths and does not know which switch is Active. If it picks the Standby switch the packet arrives at a switch whose port for that VLAN is blocked by STP, so the packet crosses the EtherChannel to the Active switch and only then reaches the Access switch. That is an extra hop on every returning packet and traffic no longer takes the same path in both directions.
-
+In Part 4 I split the VLANs across the two Distribution switches, which sorts out traffic leaving the office. However, if the router sends a packet inside the VLAN it sees two paths and does not know which of the switches is Active. If it chooses the Standby switch the packet will arrive at the switch where the port of that VLAN is blocked by the STP protocol and the packet will go through the EtherChannel to the Active switch and then to the Access switch. It is an additional hop on every packet coming back and the traffic follows different paths in both directions.
 {% include video-loop.html src="/assets/images/enp/26route_sum_video.mp4" class="video-loop--medium" %}
 
 To fix this I configured the OSPF costs on the SVIs so each switch advertises its own VLANs at 10 and the other VLANs at 1000. Now a VLAN costs 20 through its Active switch and 1010 through the other switch. If the Active switch fails its LSA disappears completely so redundancy is not affected. On real IOS that is the full solution. In Packet Tracer it did not work.
@@ -225,20 +223,18 @@ I tried using the command clear ip ospf process and it did nothing. Switching to
 After that I looked it up and Cisco's own documentation says Packet Tracer simulates IOS rather than emulating it. Other people have run into the same kind of thing in multi-area setups too. SPF doesn't seem to evaluate stub links per prefix the way real OSPF does.
 
 ### The workaround
+The cost was right, but the simulator didn't use the values. Therefore, I manually configured the paths using static routes for each of the Cores, one per VLAN.
 
-The costs were correct but the simulator just didn't act on them. So I configured the paths by hand with static routes on both Cores, one per VLAN.
+Since distance 1 is better than OSPF's 110, these paths override OSPF while both switches are alive, however, failover remains OSPF's responsibility. If a Distribution switch dies, the path is lost, static route becomes unreachable due to non-existing next-hop, and OSPF uses its route via another switch. After the Distribution switch restarts, the static route is also restored. Therefore, the redundancy configuration remains unchanged. All that happened was switching from one of the working paths to another.
 
-Distance 1 beats OSPF's 110, so these take over while both devices are up. Failover is still OSPF's job. If a Distribution switch goes down the link goes with it, the static route drops because its next hop can't be reached, and OSPF's path through the other switch takes over. When it comes back the static comes back too. So the redundancy design is untouched. The only thing that changed is which of two working paths gets used.
+The default route configured by each Distribution switch learned from the Core also had the same issue. The packets from each flow went out using different Cores, thus each Distribution switch had to have the static default routing to their preferred Core.
 
-The default route each Distribution switch learns from the Core had the same problem. Packets from one flow were leaving through different Cores, so each Distribution switch also got a static default pointing at its preferred Core.
-
-I've left the SVI and uplink costs in even though Packet Tracer ignores them, because that's the part that would be right on real hardware. The costs are the design. The statics are just there to make the simulator do what the costs already say.
+I have kept both SVI and the cost values even if Packet Tracer does not use them, since that is how things would work on the real hardware. The costs represent the actual configuration while the static routes only ensure that simulation behaves the way it should according to the cost values.
 
 ### VLAN 998
+This is the point I was referring to in VLANs section. As all the user VLANs are passive, the two Distribution switches in the office cannot form an adjacency with one another. The EtherChannel formed between the two Distribution switches is a Layer 2 link with no IP configuration at all. It works perfectly fine until both uplinks of that switch fail. The EtherChannel link remains up, but this switch becomes an island for OSPF as it has no neighbors and hence, loses its default route.
 
-This is the part I mentioned in the VLANs part. Since all user VLANs are passive, the two Distribution switches in the office are not able to create an adjacency between themselves. The EtherChannel created between these two Distribution switches is a Layer 2 link without any IP configuration. This works perfectly well until the failure of both uplinks of that switch. The EtherChannel link will still be up, but the switch is now considered an island for OSPF because it does not have any neighbors, thereby losing its default route.
-
-The VLAN 998 is another VLAN configured over the same EtherChannel link along with an SVI at each end, which helps in creating the adjacency. The VLAN is located within the office's own area as both ends are present in the office and the ip ospf cost 100 ensures that the VLAN is used only when required. This VLAN also provides coverage for the hosts. Without any interface tracking in Packet Tracer, the stranded switch remains active in HSRP, but now it can forward the hosts' traffic to its peer through VLAN 998.
+The VLAN 998 is a VLAN configured over the same EtherChannel link along with an SVI on both ends, which makes it possible to form an adjacency. This VLAN exists in the office's own area as both the ends are in the office and ip ospf cost 100 makes sure that the VLAN is used only when necessary. This VLAN also covers the hosts. Without any interface tracking in Packet Tracer, the isolated switch stays alive in HSRP, but now it can send the hosts' traffic to its peer via VLAN 998.
 
 ## Part 6 - Network Services
 
@@ -333,16 +329,9 @@ The information is useful between the infrastructure devices, but not between th
 Firewalls don’t take part in the process. In the ASA of Packet Tracer, there is no CDP or LLDP command set available.
 
 ### RADIUS
+Each device until now had its own user account in the local storage. This is fine until you need to make changes like adding a new person or changing passwords, and then you need to edit twenty devices individually. The RADIUS moves the users to the central server and requests the devices to communicate with it. The central server is in VLAN 300 at 172.16.8.6. The devices have their IP addresses, shared secret and all user accounts stored in the central server instead of each individual device. The login list in each device asks the permission of the server first and uses the local user account only when it cannot reach the server. Otherwise, a problem with the server would result in locking out all devices simultaneously. 
 
-Up to this point, each device had its own local user account. That works fine until you have to add someone or change a password, at which point it means editing twenty devices by hand. RADIUS transfers the users to the central server and asks devices to communicate with it.
-
-The server is located in VLAN 300 at 172.16.8.6. All devices are configured with their IP addresses, shared secret and all user accounts are on the server rather than on each device. On the device's end, the login list asks for permission from the server first and uses the local account only if the server cannot be reached. Without that fallback, a server outage would mean losing access to every device at once.
-
-However, this backup is not limitless. It only covers the server being unreachable, not the server answering with a rejection. If RADIUS returns rejected, device accepts the result and login attempt is rejected. Local account is the emergency account here.
-
-The challenge of IP registration arises where a device is assigned multiple IPs. In this case, the RADIUS messages will be sent out from any interfaces that use the route to the server, but never from a fixed management IP address. The uplinks used by the distribution switches to access the server will vary and thus both of their IPs will be registered. If one uplink goes down, the switch uses the other one and authentication still works.
-
-The edge routers are a good example of how fallbacks work. They sit outside the firewall, which by default blocks all traffic entering the inside zone, so their authentication requests never reach the server. DMZ_SW1 faces the same problem. Both the devices have been allowed in the ACL portion. The firewalls still use local authentication since there is no aaa-server command in ASA. Three switches also needed the older `radius-server host` syntax, because SRV_SW1, SRV_SW2 and DMZ_SW1 do not accept the newer block.
+However, this backup plan is not a security weakness because it only applies to the server being unavailable, not for the server providing a rejected response to the authentication request. If RADIUS provides a rejected response, the device considers it as such and rejects the login attempt. The local account acts as the backup account here.
 
 One note on the port number. 1645 is the old Cisco default, while the standard ports are 1812 and 1813. Packet Tracer's server listens on 1645, so that is what the clients use.
 
@@ -366,9 +355,9 @@ At this point, the VTY lines accept connections from any source within the netwo
 
 ### NAT
 
-Internet Router had static routes toward the private address space, which the real internet would never carry. They were only there to ensure connectivity while constructing the interior network. NAT will take care of that.
+The Internet Router had some static routes to the private address space, which will not exist in any case on the real internet. They were just added to provide connectivity when building the internal network. NAT will solve this problem.
 
-NAT normally runs on the firewall, but in the proposed design the Edge Routers are the last point in the network before the service provider. Everything behind them is private. If NAT ran on the firewall, it would translate private addresses into other private addresses, since its outside interfaces are private too, and the Edge Routers would still have to translate them again. Therefore, it is reasonable to move NAT to the Edge Routers.
+NAT typically operates on the firewall, but in this network, the Edge Routers are the final point in the network before the service provider’s side. Everything behind them is private. So if NAT operates at the firewall level, it would transform the private addresses into another set of private addresses because the outside interfaces of the firewall, which connects to Edge routers, are also private. Therefore, it makes sense to operate NAT at the Edge Routers level.
 
 The company has an IP block 203.0.113.0/24 and announces it to both providers. This is the smallest IP range which the Internet accepts. As it is owned by the company (and not a provider), the IP address for the traffic won’t change depending on the provider through which traffic leaves. Otherwise the identity of the company will be changing on every failover, breaking all allowlisting which may depend on IP addresses. All traffic will be translated with PAT to this IP address range. DMZ servers get static one-to-one NAT instead, because DNS points at them and their addresses cannot change.
 
@@ -393,10 +382,9 @@ The firewall does not influence the process of choosing the best route. Packet T
 The two providers' routers have been connected, with an Internet core behind them. The network stops at the edge routers, so this side exists just to give the peering some place to be terminated.
 
 ### E-mail
+The mail server is placed within the DMZ at IP address 172.16.12.3, which appears as 203.0.113.131 to the internet. It serves the domain name company.com using SMTP protocol for sending and POP3 protocol for incoming mail, and the accounts of users are located on the server.
 
-The mail server sits in the DMZ at 172.16.12.3, published to the internet as 203.0.113.131. It handles the company.com domain, with SMTP for sending and POP3 for receiving, and the user accounts live on the server itself.
-
-Clients reach it by name. mail.company.com is delegated from DNS_1 to DNS_2 the same way the external domains are, and DNS_2 holds the record. In a real network the whole company.com zone would be delegated once and every name under it would follow. Packet Tracer's DNS server matches names exactly, so each name is delegated on its own.
+To connect to it, clients use the name. The name mail.company.com is delegated from DNS_1 to DNS_2 as any other external domain name is delegated, and DNS_2 stores the name. In the real-life scenario, the entire company.com zone should be delegated only once, and all the names below it would be delegated automatically. In Packet Tracer, each name is delegated individually since DNS server matches names exactly.
 
 I tested it between PC1 in Office A and PC5 in Office B. The ACLs block any direct connection between the two offices, but both can reach the DMZ, so they still exchange mail through the shared server. That is the intended shape: the offices are kept apart, and common services sit in between.
 
@@ -405,12 +393,9 @@ From the internet, only SMTP and POP3 are opened to the mail server on the firew
 <img src="/assets/images/enp/43_email.png" alt="email" class="post-img post-img--left" style="--w: 700px;">
 
 ### FTP
+172.16.8.7 is an FTP and TFTP server. The TFTP is provided to clients via DHCP service. FTP is used to send any critical data due to the authentication process which is performed while TFTP does not require one. In our case FTP is used for backup purposes. The configurations and IOS images are loaded from devices to the server and vice versa. There is a username and password which are provided for the server for each of the devices separately since the copy command does not prompt for them.
 
-172.16.8.7 is an FTP and TFTP server. TFTP is distributed to clients using DHCP service. FTP is utilized to transfer any critical information because of the authentication that takes place whereas TFTP does not have one. In our case, we use FTP for the purpose of backups. Configurations and IOS images from the devices are uploaded to the server and vice versa. Devices are given a username and password for the server in their own configuration, because the copy command does not prompt for them.
-
-This task required the firewall configuration as well. Since the Edge Routers and DMZ_SW1 sit outside the inside zone, FTP access for them had to be opened the same way as for NTP, syslog and RADIUS.
-
-Upgrading the device image involves the same procedure followed by pointing the device to the new file and reloading it. This operation is not covered in this project because the available files on the server are not suitable for the switch platform and a wrong filename renders the device incapable of booting.
+The configuration of the firewall was also required for this task. The Edge Routers and DMZ_SW1 devices do not belong to the inside zone and therefore FTP access to them had to be enabled the same way as NTP, syslog and RADIUS services.
 
 <img src="/assets/images/enp/44ftp.png" alt="ftp" class="post-img post-img--left" style="--w: 500px;">
 
@@ -523,7 +508,6 @@ The DMZ and the internal servers share a room but not a rack, so the separation 
 <img src="/assets/images/enp/59_server_room.png" alt="server_room" class="post-img post-img--left" style="--w: 450px;">
 
 ## Conclusion
-
 In this project, I designed and simulated a real enterprise network as far as Packet Tracer allowed me. I built each part the way it would be built in a real network and explained the reasoning behind every decision.
 
-At the start of the project, I didn't expect Packet Tracer's limitations to come up this often. Each time a feature didn't work the way it would on real IOS, I had to find another way to reach the same result, which taught me the solutions I wouldn't have looked for otherwise. At the same time, these limitations also restricted how far the design could go in Packet Tracer. That's why I'm planning to build my future projects in GNS3. Even though building a project like this in GNS3 is more costly, it runs real device images, which will let me design a larger and more complex network.
+At the start of the project, I didn’t expect Packet Tracer’s limitations to come up this often. Each time a feature didn’t work the way it would on real IOS, I had to find another way to reach the same result, which taught me the solutions I wouldn’t have looked for otherwise. At the same time, these limitations also restricted how far the design could go in Packet Tracer. That’s why I’m planning to build my future projects in GNS3. Even though building a project like this in GNS3 is more costly, it runs real device images, which will let me design a larger and more complex network.
