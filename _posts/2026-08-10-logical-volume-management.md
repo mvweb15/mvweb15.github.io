@@ -3,16 +3,15 @@ title: "Logical Volume Management"
 tags: [LVM]
 cover: /assets/images/cover-lvm.jpg
 ---
-Before I begin explaining Logical Volume Management (LVM), I'd like to briefly talk about why this article came about and what it covers. Although there are many articles about LVM on the internet, a common shortcoming I noticed in many of the articles I read while researching this topic was that they weren't sufficiently explanatory or comprehensive. That's why I wanted to gather what I've learned into this article, explaining it as a complete whole, starting from physical disks, which form the foundation of this subject, all the way up to its topmost layer. First, we'll take a look at a situation that arises in a system without LVM. Afterward, I'll explain what LVM is and describe its structure, showing how it solves this situation. Then, I'll go over the other advantages of LVM.
-
+Before I start explaining Logical Volume Management (LVM), I would like to briefly talk about why I wrote this post and what it covers. Although there are many articles about LVM on the internet, one thing I noticed in many of the articles I read while researching this topic was that they weren't explanatory or comprehensive enough. This is why I wanted to gather what I've learned into this article, explaining it as a complete whole, starting from physical disks, which are the foundation of this subject, all the way up to its top layer. First, we'll take a look at a situation that arises in a system without LVM. After this, I will explain what LVM is and describe its structure by showing how it solves this situation. Then, I'll go over the other advantages of LVM.
 
 ## Log Files Filling Up the Disk
 
 First, let's look at what happens in a system without LVM when the storage space fills up. The output of the system's `lsblk` command looks like this:
 ![lsblk komutu çıktısı](/assets/images/lvm/lsblk_cikti.png)
 
-In the attachment below, there's a newly added 20 GB storage device, /dev/sdb, in the system. This storage device has been partitioned into 10 GB sections as /dev/sdb1 and /dev/sdb2. These two partitions, mounted at /data1 and /data2, were created to store the applications' log files.
-![lsblk komuut çıktısı2](/assets/images/lvm/2_lsblk.png)
+In the attachment below, there's a newly added 20 GB storage device, `/dev/sdb`, in the system. This storage device has been partitioned into 10 GB sections as `/dev/sdb1` and `/dev/sdb2`. These two partitions, mounted at `/data1` and `/data2`, were created to store the applications' log files.
+![lsblk komutu çıktısı 2](/assets/images/lvm/2_lsblk.png)
 
 Let's simulate one of the problems encountered in real life: log files consuming the disk's space. Since this command will fill up the disk quickly, don't try it on your own systems.
 
@@ -24,16 +23,16 @@ In the diagram below, you can more clearly see a system without LVM and the oper
 In this situation, you could of course choose to move the log files to another disk or delete them. But as you can probably guess, this process gets harder as the number of disks increases. In this case, you could expand your file system using LVM, or solve this problem in other ways. However, since the system you see above doesn't use LVM, you can't expand your file system. Now I'll explain LVM, which solves this problem and provides many other advantages, and describe how we'll use it.
 
 
-## What is LVM ?
+## What is LVM?
 As stated on the official Red Hat documentation site[^1], LVM allows you to create logical volumes by forming an abstraction layer over physical storage. This offers far more flexibility in many respects compared to using physical storage directly. With a logical volume, you're not limited by physical disk sizes. Additionally, the hardware storage configuration is hidden from the software, so volumes can be resized and moved without stopping applications or unmounting file systems. This can, in turn, reduce operational costs.
 
 ## Components of LVM
 As stated in the technical definition, LVM creates an abstraction layer over physical storage. As you can see below, this layer consists of 3 components.
 <img src="/assets/images/lvm/lvmdiagramupdate1.png" alt="lvmbilesen" class="post-img" style="max-width: 350px;">
 ## Physical Volume
-It forms the lowest layer of the LVM structure. It's created when a physical storage unit, such as a disk, disk partition, or RAID array, is made usable by LVM. In order for a physical disk to be managed by LVM, it must first be converted into a Physical Volume.
+It is the lowest layer of the LVM structure. It's created when a physical storage unit, such as a disk, partition or RAID array is made usable by LVM. In order for a physical disk to be used by LVM, it must be converted into a Physical Volume first.
 ## Volume Group
-LVM gathers these storage units, which have been created as Physical Volumes, into a storage pool called a Volume Group. Physical Volumes can't be used on their own; they're first added to a Volume Group, and in this way, the capacities of disks with different sizes are combined into a single logical pool. This Volume Group represents the shared storage space that the Logical Volumes will use.
+The LVM combines these storage devices that have already been made into physical volumes to form a pool of storage space known as a volume group. Physical volumes cannot be accessed individually; they must first be pooled together in a volume group, and by doing this, the capacities of physical volumes having different sizes are combined together into a logical pool of storage space.
 ## Logical Volume
 It's the highest layer of the LVM structure. It's a section carved out of the Volume Group at a specific size, according to need. Logical Volumes behave similarly to classic disk partitions, and a file system can be set up on them, formatted, and mounted. Unlike a physical disk, the size of Logical Volumes can easily grow or shrink based on the capacity of their Volume Group. As can be understood from the situation I described earlier, this is one of LVM's biggest advantages.
 
@@ -59,7 +58,7 @@ To solve this problem, we'll add a 3rd disk to the VG to expand the pool, and th
 ## LVM Configuration with Explanations
 First, let's view the new disks using the `lsblk` command.
 ![diskler](/assets/images/lvm/diskler.png)
-Before converting the physical disks into PVs, I need to mention something. It's possible to add physical disks directly to LVM without partitioning them. Alternatively, it's also possible to partition the physical disks first and create PVs from these partitions to add to LVM. However, according to the Red Hat documentation site, it's generally recommended to create a single disk partition that spans the entire disk, mark this partition as Linux LVM, and then convert it into a PV [^2]. For this reason, instead of using the disks directly, I'll stick to Red Hat's recommendations. Now that I've explained this detail, we can continue.
+Before turning the physical disks into PVs, there is one more thing I have to mention. It is possible to use the physical disks without partitioning and add them directly to LVM. Moreover, it is possible to partition the disks and use partitions as physical volumes when adding them to LVM. But, according to Red Hat Documentation website, it is better to partition the disk and make one partition covering the whole disk, mark it as Linux LVM, and then convert this partition into PV [^2]. That is why I will follow Red Hat’s recommendations instead of working with the disks directly. Now that I've explained this detail, we can continue.
 
 ## Disk Partitioning
 You can see the process we'll perform below. At the beginning of each section, I'll include these diagrams to make it easier to follow and explain.
@@ -67,9 +66,9 @@ You can see the process we'll perform below. At the beginning of each section, I
 First, we'll use the `fdisk` command to partition the newly added disks into a single partition each, and mark them as Linux LVM.
 Run the `fdisk /dev/sdb` command, then type `n` to begin creating a new partition.
 <img src="/assets/images/lvm/fdisk.png" alt="fdisk" class="post-img post-img--left" style="max-width: 650px;">
-Now type `p` to select the primary partition option. For the `Partition number`, enter 1. Since we'll be using the entire disk for this partition, you can leave the `First sector` and `Last Sector` options blank and press enter to skip them.
+Now type `p` to select the primary partition option. For the `Partition number`, enter 1. Since we'll be using the entire disk for this partition, you can leave the `First sector` and `Last sector` options blank and press enter to skip them.
 <img src="/assets/images/lvm/part.png" alt="part" class="post-img post-img--left" style="max-width: 650px;">
-Type `t` to mark the disk as `Linux LVM`. Type L to see the options.
+Type `t` to mark the partition as `Linux LVM`. Type `L` to see the options.
 <img src="/assets/images/lvm/toption.png" alt="toption" class="post-img post-img--left" style="max-width: 650px;">
 Mark the partition as Linux LVM using the hex code 8E.
 <img src="/assets/images/lvm/83.png" alt="83" class="post-img post-img--left" style="max-width: 650px;">
@@ -84,19 +83,18 @@ We use the `pvcreate` command to create a Physical Volume (PV). To convert the p
 <img src="/assets/images/lvm/pvcreate1.png" alt="pvcreate1" class="post-img post-img--left" style="max-width: 650px;">
 Use the `pvdisplay` command to view the details of the PV we created.
 <img src="/assets/images/lvm/pvnew1.png" alt="pvdisplay" class="post-img post-img--left" style="max-width: 650px;">
-1: The PV's name is `/dev/sdb1`, the name of the physical disk we created it from.
+1: The PV's name is `/dev/sdb1`, the name of our partition that we used to create the PV.
 
 2: `VG Name` is empty because we haven't added this Physical Volume to a Volume Group yet.
 
-3: `PV Size` 50 GiB indicates the size of the Physical Volume. Don't confuse GiB here with GB. You can find the difference between them in the sources[^3] section.
+3: `PV Size` 50 GiB indicates the size of the Physical Volume. Don not confuse GiB here with GB. You can find the difference between them in the references[^3] section.
 
 4: `Allocatable NO` because the Physical Volume hasn't been added to a Volume Group yet.
 
-5 - 6 - 7 - 8: Let me explain what PE means in this part. PE (Physical Extent) is the smallest storage unit on a Physical Volume (PV). When a Physical Volume is added to a Volume Group, the disk is managed not in bytes but by being divided into fixed-size blocks called extents. The size of these blocks is 4 MiB. So since this Physical Volume of ours hasn't been added to a Volume Group yet, it hasn't been divided into extents yet, which is why the PE-related fields currently show 0.
+5 - 6 - 7 - 8: Let me explain what PE means in this part. PE (Physical Extent) is the smallest unit of storage on the Physical Volume (PV). After the addition of Physical Volume to a Volume Group, the hard drive is not managed in bytes but is divided into extents with fixed size. The standard size of extents is 4 MiB. Therefore, our Physical Volume is not yet added to a Volume Group and thus isn’t divided into extents and that is why all fields connected to PE have 0 value now.
 
-9: This is the Physical Volume's unique identifier. This UUID is written into the LVM metadata area (header) at the very beginning of a disk like `/dev/sdb1`. In other words, the UUID isn't tracked on the operating system's side, but is physically carried on the disk itself. Even if the disk's name or order changes, or it's moved to another server, the PV UUID remains the same. The LVM structure, meaning the relationship between the Physical Volume (PV), Volume Group (VG), and Logical Volume (LV), is built through cross-referencing (PV↔VG↔LV) via these UUIDs.
-
-Now let's continue by converting the `/dev/sdc1` disk into a Physical Volume.
+9: This is the Unique Identifier of the Physical Volume. The UUID is stored in the metadata of the LVM located in the header of the disk such as `/dev/sdb1`. In simpler terms, the UUID is not stored on the side of the OS, but physically stored in the disk itself. Regardless of the changes in the names and order of the disks or even the movement to a different server, the PV UUID stays the same. The LVM hierarchy or the association of the PV, VG, and LV is done through the cross-reference using the UUIDs.
+Now let's continue by converting the `/dev/sdc1` partition into a Physical Volume.
 
 `pvcreate /dev/sdc1`
 <img src="/assets/images/lvm/devsdc.png" alt="devsdc" class="post-img post-img--left" style="max-width: 650px;">
@@ -124,17 +122,17 @@ We can better see the difference by comparing our two PVs.
 <img src="/assets/images/lvm/updatedvgoutput.png" alt="fark" class="post-img post-img--left" style="max-width: 650px;">
 As you can see, after being added to the VG, the PV `/dev/sdb1` has been divided into 12799 blocks of 4.00 MiB in size. The PV `/dev/sdc1`, on the other hand, hasn't been divided into blocks yet since it hasn't been added to a VG. Now let's examine the VG we created using the `vgdisplay` command.
 <img src="/assets/images/lvm/vgdisplaynew.png" alt="vg" class="post-img post-img--left" style="max-width: 650px;">
-1: The VG's name.
+1: The name of the VG.
 
-2: The system ID the group belongs to. Typically used in cluster environments, so it's empty.
+2: The system ID of the group. Usually used in cluster environments, so it's empty.
 
 3: The standard LVM format version.
 
-4: A VG's configuration information is referred to as metadata. This metadata holds general configuration information such as which LV in the LVM has what size, which PEs are stored where, UUIDs, and names. By default, this metadata is kept by being copied into the metadata[^4] areas of all PVs within the VG. I don't want to go into more detail on this topic than we need. You can check the sources section for further details.
+4: Configuration data of the VG is called metadata. The metadata contains configuration data such as which size does an LV have in LVM, where PEs are located, UUIDs, names, etc. By default, the metadata is stored by copying it into the metadata[^4] areas of all PVs of the VG. I don’t want to talk about this topic in more detail than needed. You can look in the sources section for further info.
 
 5: A revision number that increases by 1 every time an operation is performed on the VG.
 
-6: By default, you can create, delete, and resize LVs. When set to "read-only," you can't perform any operations such as creating, deleting, or extending LVs.
+6: By default, creating, deleting and resizing of the LVs is possible. If it is set to "read-only" then it is not possible to perform any operations like creating, deleting and resizing the LVs.
 
 7: A fixed value marked as resizable. It rarely changes except in very rare cases, so I won't go into detail about it.
 
@@ -162,7 +160,7 @@ As you can see, after being added to the VG, the PV `/dev/sdb1` has been divided
 
 19: The unique identifier number. As I explained earlier, when we add a PV to a VG, LVM writes the VG's UUID onto that PV. This way, it knows which VG it belongs to by its UUID, not by the PV's name.
 
-As you can see here in the output of the `pvs -o pv_name,pv_uuid,vg_name,vg_uuid` command `/dev/sdb1` points to the `vg_base` group via its UUID.
+As you can see here in the output of the `pvs -o pv_name,pv_uuid,vg_name,vg_uuid` command, `/dev/sdb1` points to the `vg_base` group via its UUID.
 <img src="/assets/images/lvm/uuid.png" alt="point" class="post-img post-img--left" style="max-width: 750px;">
 Now let's add the `/dev/sdc1` PV to the VG we created, using the `vgextend` command.
 
@@ -174,37 +172,36 @@ Using the `vgdisplay` command again, we can see that the VG's size has increased
 <img src="/assets/images/lvm/curpvnew.png" alt="volume" class="post-img post-img--left" style="max-width: 650px;">
 Now our PVs are in the same pool. The PV UUIDs point to the VG UUID of our VG named `vg_base`.
 <img src="/assets/images/lvm/vguuid.png" alt="havuz" class="post-img post-img--left" style="max-width: 650px;">
-## Creating Logical Volumes From Volume Group
+## Creating Logical Volumes from the Volume Group
 <img src="/assets/images/lvm/lvcreatediagram.png" alt="havuz" class="post-img post-img--left" style="max-width: 650px;">
 Now, we'll use the `lvcreate` command to create a Logical Volume (LV) from our VG named `vg_base`, on which we can create a file system.
 
-Syntax: `lvcreate -L <size> [M|G|T] -n <lv_name> <vg_name>`
+Syntax: `lvcreate -L <size>[M|G|T] -n <lv_name> <vg_name>`
 
 Command: `lvcreate -L 25G -n lv_data1 vg_base`
 
-With this command, we specify the amount we want in bytes using `-L`, or as a percentage or in blocks using `-l`. Although it's usually not specified in blocks, it's still useful to know. After specifying the name of the LV we want to create with `-n`, we indicate which VG this volume will be created from.
+With this command, we specify the amount we want as a size (M, G, T) using `-L`, or as a percentage or in blocks using `-l`. Although it's usually not specified in blocks, it's still useful to know. After specifying the name of the LV we want to create with `-n`, we indicate which VG this volume will be created from.
 You can examine the LV we created using the `lvdisplay` command.
 <img src="/assets/images/lvm/lvdisplaynew.png" alt="lvdisplay" class="post-img post-img--left" style="max-width: 650px;">
-1: The device path for the LV. After adding a file system, we'll mount the LV using this path.
+1: The device path for the LV. Once the file system has been added, this path will be used to mount the LV.
 
-2: The LV's name.
+2: The name of the LV.
 
-3: The name of the VG this LV belongs to.
+3: The name of the Volume Group that the LV belongs to.
 
-4: The unique identifier number for each LV on the system.
+4: Unique ID number for each LV on the system.
 
-5: Read/write is enabled on the LV. You can set your LV to read-only.
+5: Read/write access is enabled on the LV. You may set the LV to read-only access.
 
-6: Information about which host the LV was created on and when.
+6: Information regarding which host the LV has been created and when.
 
-7: The LV is active and ready for use.
+7: The LV is online and available for use.
 
-8: The LV is active but not currently mounted; no one is using it.
+8: The LV is online and not mounted. No user is accessing it.
 
-9: The LV's total size.
+9: Size of the LV.
 
-10: The number of Logical Extents (Logical Blocks) that make up the LV. It consists of a total of 6400 4 MiB blocks.
-
+10: Number of Logical Extents (Logical Blocks) required by the LV. The LV is made up of 6400 blocks of 4 MB in size.
 
 11: Shows how many segments the LV consists of. On disk, it's a single, unsplit segment. I'll explain this part later.
 
@@ -244,9 +241,9 @@ If we had created a 125 GiB LV, since there's no PV of that size, the LV would n
 <img src="/assets/images/lvm/test.png" alt="test" class="post-img post-img--left" style="max-width: 650px;">
 Let's take a look at this LV that I created as an example, using the `lvdisplay` command.
 <img src="/assets/images/lvm/segmentsnew.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;">
-1: I mentioned I'd explain this part later. The segments field shows which PVs and which areas on disk the LV resides in. As you can see, since none of the PVs in our VG are 125GiB in size, our LV has been split into 2 pieces. An LV doesn't always have to be physically contiguous. It can be fragmented like this. We call each contiguous piece a segment. If the segment count is 1, it means the LV resides as a single piece, in a contiguous area. This is the preferred, clean layout.
+1: I said that I would explain this part later. The Segments field shows how many pieces our LV consists of. As you can see above, since no PV in our VG is 125GiB in size, our LV has been divided into 2 parts. An LV doesn't have to be physically contiguous; it can be fragmented like this. Each contiguous portion is called a segment. If the segment count is 1, it means the LV resides as a single piece in a contiguous area. This is the preferred, clean layout.
 
-If the segment count is more than one, it means the LV is spread across different PVs. In cases like this, where the PV sizes aren't sufficient, LVs can naturally be split into segments. However, as I'll show in another example in the next part, this kind of unwanted fragmented layout isn't preferred in environments using HDDs, since it causes the disk head to move around more.
+If the number of segments is greater than 1, this signifies that the LV is distributed in multiple PVs. In scenarios such as this, when the size of the PVs isn't large enough, it becomes natural for LVs to be partitioned into segments. But, as we well see in another example, this kind of fragmented structure isn't preferred when working with HDDs.
 ## Creating and Mounting a File System
 <img src="/assets/images/lvm/filesystem1.png" alt="segment" class="post-img post-img--left" style="max-width: 650px;"> 
 At the end of the LVM process, we can start using our LVs by adding a file system with the mkfs command and mounting them onto the system.
@@ -307,15 +304,13 @@ Syntax 3: `lvextend -L +50G <lv_path>` adds a specific amount to the LV.
 Now let's expand the size of our LV.
 Command: `lvextend -L +24G /dev/vg_base/lv_data1`
 <img src="/assets/images/lvm/extend.png" alt="exnted" class="post-img post-img--left" style="max-width: 650px;">
-The reason I used 24G instead of 25G is that `lv_data1`, which we're currently expanding, resides on the 50GiB PV`/dev/sdb1`. At first glance, you might think of using up the entire 50GiB PV by adding 25GiB more to the LV. However, in reality, the allocatable size of `/dev/sdb1` for LVM isn't exactly 50GiB, but approximately 49.5GiB. In other words, if I had expanded it by 25GiB instead of 24, we would have seen the remaining 500 MiB split off onto another disk (segment). As you can see below, this causes unnecessary complexity and makes management harder.
+ I used 24G instead of 25G because `lv_data1` resides on the 50GiB PV `/dev/sdb1`. At first you might think of using the entire 50GiB PV by adding 25GiB more to the LV. However, the allocatable size of `/dev/sdb1` for LVM isn’t exactly 50GiB, it is approximately 49.5GiB. In other words, if I had expanded it by 25GiB instead of 24GiB, we would have seen the remaining 500 MiB split off onto another disk (segment). As you can see below, this causes unnecessary complexity and makes management harder.
 <img src="/assets/images/lvm/disktest.png" alt="disktest" class="post-img post-img--left" style="max-width: 650px;">
 So, if you don't want your LV to be split onto other disks beyond the PV it currently resides on when expanding it, pay attention to this situation.
 
 Let's check the size of our LVs using the `df -h /data1 /data2` command.
 <img src="/assets/images/lvm/dfh.png" alt="disktest" class="post-img post-img--left" style="max-width: 650px;">
-As you may have noticed, even though we added 25 GB more to the LV, its size didn't increase, and it still shows as 25GiB instead of 50GiB.
-
-The reason for this is that the `lvextend` command only grows the LV itself; it doesn't change the size of the file system on top of it. That's why, after using the lvextend command, you also need to expand the file system. The commands used for this operation are:
+As you may have noticed, even though we added 24GiB more to the LV, its size didn't increase, and it still shows as 25GiB instead of 49GiB. This is because the lvextend command just expands the size of the LV but does not do anything to the file system. Therefore the next step is to expand the file system too. The commands to be used here are:
 
 To expand the XFS file system: `xfs_growfs`
 To expand the EXT4 file system: `resize2fs`
@@ -326,7 +321,7 @@ Let's expand the file system of our LV.
 <img src="/assets/images/lvm/resize.png" alt="resize" class="post-img post-img--left" style="max-width: 650px;">
 Let's check the size again using the `df -h /data1 /data2` command.
 <img src="/assets/images/lvm/dfh10.png" alt="resize" class="post-img post-img--left" style="max-width: 650px;">
-As you can see, after expanding the file system, our LV's size increased to 50GiB.
+As you can see, after expanding the file system, our LV's size increased to 49GiB.
 
 ## Disk Filling Up Scenario: /data2
 In this part, just like we did with `/data1`, we'll fill up the free space on `/data2` as well. This time, we want to solve the disk-filling problem by growing the size of the `lv_data2` LV to 150GiB. However, there isn't enough space left in our VG. That's why we've added a new disk to the system, and we'll expand the size of the VG. We'll set our LV's size to 150GiB, and finally complete the process by expanding the file system as well.
@@ -339,7 +334,7 @@ We want to expand the size of `lv_data2`, which /data2 is mounted on, to 150GiB,
 <img src="/assets/images/lvm/bospace.png" alt="bospace" class="post-img post-img--left" style="max-width: 650px;">
 To solve this problem, we've added a 150GiB `/dev/sdd` disk to our system, and we're verifying it using the `lsblk` command.
 <img src="/assets/images/lvm/sdd3.png" alt="sdd3" class="post-img post-img--left" style="max-width: 650px;">
-Before converting our disk into a PV to use in the VG with the `pvcreate command`, as you'll recall, we first create a partition that spans the entire disk. This is the same process I explained in the earlier sections. So I won't show the disk partitioning step again. If you'd like, you can review the steps again by clicking on "Disk Partitioning" in the "Contents" panel.
+Before converting our disk into a PV to use in the VG with the `pvcreate` command, as you'll recall, we first create a partition that spans the entire disk. This is the same process I explained in the earlier sections. So I won't show the disk partitioning step again. If you'd like, you can review the steps again by clicking on "Disk Partitioning" in the "Contents" panel.
 
 As you can see below, we've created a partition that spans the entire disk.
 <img src="/assets/images/lvm/butundisk.png" alt="sdd3" class="post-img post-img--left" style="max-width: 650px;">
@@ -383,7 +378,7 @@ Although the command we used isn't very practical, its output is quite easy to u
 In other words, the 150GiB LV `lv_data2` uses `100GiB` of space from the 100 GiB `/dev/sdc1`, and 50GiB of space from the 150 GiB `/dev/sdd1`.
 
 ## Shrinking a Logical Volume's Size
-We decide that we no longer need 49GiB of space on the `lv_data1` LV. So we'll shrink our LV's size to free up room in our VG for other LVs. Before we begin, there are two important details you need to know. In LVM, shrinking an LV's size is riskier than growing it, because there's a risk of data loss. The file system must be shrunk first, and then the LV. If you do this in the reverse order, you'll lose your data. The other detail is that the XFS file system doesn't support shrinking in any way. XFS can only be grown. If you're using XFS, the only way to shrink an LV is to create a new LV at the size you want and migrate your data there. That's why we'll shrink `lv_data1`, which uses the EXT4 file system.
+We decide that we no longer need 24GiB of the space on the 49GiB `lv_data1` LV. So we'll shrink our LV's size to free up room in our VG for other LVs. Before we begin, there are two important details you need to know. In LVM, shrinking an LV's size is riskier than growing it, because there's a risk of data loss. The file system must be shrunk first, and then the LV. If you do this in the reverse order, you'll lose your data. The other detail is that the XFS file system doesn't support shrinking in any way. XFS can only be grown. If you're using XFS, the only way to shrink an LV is to create a new LV at the size you want and migrate your data there. That's why we'll shrink `lv_data1`, which uses the EXT4 file system.
 
 First, let's start by unmounting `lv_data1`.
 
@@ -397,11 +392,11 @@ Command: `e2fsck -f /dev/vg_base/lv_data1`
 
 Let's shrink our file system.
 
-Command: `resize2fs/dev/vg_base/lv_data1 25G`
+Command: `resize2fs /dev/vg_base/lv_data1 25G`
 <img src="/assets/images/lvm/resize2fs.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
 Now we can shrink our LV.
 
-Syntax: `lvreduce -L <target_size <lv_path>`
+Syntax: `lvreduce -L <target_size> <lv_path>`
 Command: `lvreduce -L 25G /dev/vg_base/lv_data1`
 
 <img src="/assets/images/lvm/lvreduce.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
@@ -414,12 +409,11 @@ Command 2: `df -h | grep data`
 <img src="/assets/images/lvm/remoun.png" alt="devsdd" class="post-img post-img--left" style="max-width: 650px;">
 As you can see, it's a short and simple process. But be careful not to mix up the order, or you could lose your data.
 ## Disk Failure Scenario
-Now let's assume that the `/dev/sdb` disk, which houses the LV `lv_data1` which is mounted at `/data1`, has started to fail. In this case, the first solution that comes to mind might be to switch `/data1` to read-only mode, as often recommended, and start the migration with the `mv` command. However, as you know, this approach causes downtime. Moreover, commands that operate at the file system level, like `mv`, will leave the operation half-finished if something like a power outage or a disk error occurs during the move, and you'll have to manually check which files were moved and which weren't. There's no automatic resume or rollback mechanism. On top of that, if there's more than one LV on the disk, moving files with the `mv` command doesn't remove the disk from the VG, so the other LVs on that disk would still remain on the failing disk.
+Now, let's consider a situation where the `/dev/sdb` disk, which contains the `lv_data1` LV mounted at `/data1`, starts to fail. The first solution that comes to mind might be to set `/data1` to read-only, as many people suggest, and start the migration using the mv command. However, as you might know, this causes downtime. Also, mv operates at the file system level, so if something like a power outage or a disk failure occurs during the transfer, it has no way to resume or roll back the operation. You will have to handle it manually and figure out which files were transferred and which weren't. Also, if there are several LVs on the disk, moving files with mv won't remove the disk from the VG, so the other LVs will remain on the failing disk.
 
-For this reason, before removing our failing disk from the VG, we'll use the `pvmove` command to safely migrate the LV and its data. Unlike `mv`, the `pvmove` command operates at the block level. In other words, it doesn't care at all about what the file system is or what files are inside it. It moves LVM's PEs from one PV to another. What actually happens isn't a "file move," but a change in where the LV physically resides. `pvmove` performs the move in segments by creating a temporary mirror (like RAID) between the source and the destination. As each segment completes, the progress is written to the VG metadata as a checkpoint. This operation runs in the background while the LV is mounted and services are running. So you don't need to unmount the disk or experience any downtime to move the data. If the system crashes or the disk throws an error during the process, LVM records it as an incomplete `pvmove`, and when you run the command again, it picks up where it left off, because LVM knows which PEs have been moved and which haven't. This way, everything is preserved. Now that I've explained these details, we can begin.
+For that reason, before we proceed to remove our faulty disk from the VG, we will use the pvmove command to relocate the LV and the data in it safely. Unlike mv, the pvmove command works on the block level. To put it simply, it doesn't really care what file system it is and what files it contains. The pvmove command relocates PEs belonging to an LV from one PV to another. It is not a file relocation but relocation of the LV itself. It does it in segments creating a temporary mirror (similar to RAID) between the source and the destination. The process progresses in small segments and each time when one is finished, it creates a checkpoint in the VG metadata. The process takes place in the background while the LV is mounted and working. So, there is no need to unmount your disk and stop all services to move the data. If the system crashes or the disk throws some errors while you are doing this, LVM will mark it as an unfinished pvmove operation and the next time you use the command again, it picks up where it left off, because LVM knows which PEs have been moved and which haven't. This way, everything is preserved. Now that I've explained these details, we can begin.
 
-We've noticed that the `/dev/sdb` disk has started to fail. We had created the PV named `/dev/sdb1` on this disk. That means all the LVs and data on the `/dev/sdb1` PV are at risk. So we want to safely migrate these LVs to the `/dev/sdd1` PV, which we created from our newly added `/dev/sdd` disk. First, let's check whether there's enough space on `/dev/sdd1` using the `pvs` command.
-
+We've noticed that the /dev/sdb disk has started to fail. We had created the PV named /dev/sdb1 on this disk. That means all the LVs and data on the /dev/sdb1 PV are at risk. So we want to safely migrate these LVs to the /dev/sdd1 PV, which we created from our newly added /dev/sdd disk. First, let's check whether there's enough space on /dev/sdd1 using the pvs command.
 <img src="/assets/images/lvm/pvs2.png" alt="3disk" class="post-img post-img--left" style="max-width: 650px;">
 As you can see, the `/dev/sdd1` PV has enough space. Before we begin, let's see which LVs are using which PVs, so we can refer back to it later, using the command `pvs --segments -o lv_name,seg_size,pv_name,pv_size --units g | awk 'NF==4'`
 <img src="/assets/images/lvm/pvsoption.png" alt="pvsoption" class="post-img post-img--left" style="max-width: 450px;">
@@ -431,13 +425,13 @@ Syntax: `pvmove <source_pv> <destination_pv>`
 
 Command: `pvmove /dev/sdb1 /dev/sdd1`
 <img src="/assets/images/lvm/pvmoved.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 650px;">
-After the migration completes, let's take another look at the current state using the `pvs --segments -o pv_name,pv_size,lv_name,seg_size --units -g` command again.
+After the migration completes, let's take another look at the current state using the `pvs --segments -o pv_name,pv_size,lv_name,seg_size --units g` command again.
 <img src="/assets/images/lvm/pvsfinal.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 450px;">
 As you can see, the `lv_data1` LV has now been moved to the `/dev/sdd1` PV. After the migration is complete, we can remove the `/dev/sdb1` PV, created from the failing disk, from the VG. The command we'll use is `vgreduce`.
 Syntax: `vgreduce <vg_name> <pv_name>`
 Command: `vgreduce vg_base /dev/sdb1`
 <img src="/assets/images/lvm/vgreduce.png" alt="pvmoved" class="post-img post-img--left" style="max-width: 550px;">
-Now that we've removed our PV from the VG, we can remove our disk from PV status.
+Now that we've removed our PV from the VG, we can remove our disk from PV status using the `pvremove /dev/sdb1` command.
 <img src="/assets/images/lvm/pvremove2.png" alt="pvremve" class="post-img post-img--left" style="max-width: 650px;">
 We've now completed our operation, and without unmounting the disk or switching it to read-only mode, we migrated all the LVs on the disk and their data live, without any downtime. If we had had more than one LV, the same steps would still apply.
 ## LVM Striping
@@ -452,7 +446,7 @@ First, let's take a look at our disks.
 Let's partition our disks in order to create PVs. You can review this process in the "Contents" section under "Disk Partitioning." The output of the `lsblk /dev/sde /dev/sdf` command should look like this:
 <img src="/assets/images/lvm/lsblknew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 650px;">
 We're creating our PVs using the `pvcreate /dev/sde1 /dev/sdf1` command.
-<img src="/assets/images/lvm/pvler1.png" alt="yenidiskler" class="post-img post-img--left" style="max-width 450px;">
+<img src="/assets/images/lvm/pvler1.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 450px;">
 To make things easier to track, we'll create a new VG named `vg_stripe`, separate from the `vg_base` VG that we created in the earlier stages. As a reminder:
 
 Syntax: `vgcreate <vg_name> <pv_path>`
@@ -471,7 +465,7 @@ Command: `lvcreate --type raid0 -i 2 -I 64 -l 100%FREE -n lv_stripe vg_stripe`
 
 `-i 2`: The stripe count. Specifies how many physical disks/PVs the data will be split across. The data will be distributed sequentially across 2 PVs, /dev/sde1 and /dev/sdf1.
 
-`-I 64`: Specifies the stripe size. In other words, a stripe size of 64 KiB means that once data is written to one disk in this amount, it moves on to the next disk.
+`-I 64`: Specifies the stripe size. In other words, a stripe size of 64 KiB means that once 64 KiB of data is written to one disk, writing moves on to the next disk.
 
 `-l 100%FREE`: The space to be allocated to the LV. That is, we're using all of the space in our `vg_stripe` VG.
 
@@ -494,16 +488,16 @@ Command 2: `mount /dev/vg_stripe/lv_stripe /striped`
 <img src="/assets/images/lvm/lvmstriped2.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
 Now that our LV named `lv_stripe` is mounted to the `/striped` folder, it's ready to use. (Don't forget to add an entry to the `/etc/fstab` file to make this mount point persistent.)
 
-Now let's compare the `lv_data1` LV, mounted on `/dev/sdd1` as seen in the attachment above, against our newly created `lv_stripe`, in terms of write speed to see the performance advantage that RAID 0 (striping) provides.
+Now let's compare the `lv_data1` LV, residing on `/dev/sdd1` as seen in the attachment above, against our newly created `lv_stripe`, in terms of write speed to see the performance advantage that RAID 0 (striping) provides.
 
-There's an important point I need to mention here. If you're performing this on a virtual machine (VM), as I did, you won't see the write speed difference we'd expect in the fio test. This is because the disks we added to the VM (`/dev/sdd`, `/dev/sde`) are virtual, and in the background they still share the host machine's single physical disk. In other words, even though we've correctly set up the RAID 0 configuration at the LVM level, since these virtual disks physically reside on the same underlying disk, they don't provide true parallelism, and we can't measure striping's real performance gain in a VM environment.
+There's an important point I need to mention here. If you're performing this on a virtual machine (VM), as I did, you won't see the write speed difference we'd expect in the fio test. This is because the disks we added to the VM (`/dev/sdd`, `/dev/sde`, `/dev/sdf`) are virtual, and in the background they still share the host machine's single physical disk. In other words, even though we've correctly set up the RAID 0 configuration at the LVM level, since these virtual disks physically reside on the same underlying disk, they don't provide true parallelism, and we can't measure striping's real performance gain in a VM environment.
 
 In a scenario where we're not using a VM, the difference between the two LVs in the fio test would look like this:
 `lv_data1`'s write speed.
 <img src="/assets/images/lvm/readwritenormalnew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;"> 
 `lv_stripe`'s write speed.
 <img src="/assets/images/lvm/readwritestripenew.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 850px;">
-As you can see, in an LV configured with LVM RAID 0, write speed roughly doubles on average. Keep in mind that RAID 0 doesn't provide redundancy. So in situations that require redundancy, you should use one of RAID levels 1, 2, 4, 6, or 10. As you might guess, explaining all the RAID levels would make this article far too long, so I wanted to demonstrate LVM's RAID support using only the striping configuration. You can check the sources section for details on the other levels.
+As you can see, in an LV configured with LVM RAID 0, write speed roughly doubles on average. Keep in mind that RAID 0 doesn't provide redundancy. So in situations that require redundancy, you should use one of RAID levels 1, 4, 5, 6, or 10. As you might guess, explaining all the RAID levels would make this article far too long, so I wanted to demonstrate LVM's RAID support using only the striping configuration. You can check the sources section for details on the other levels.
 
 ## LVM Snapshots
 As stated on the Red Hat documentation site, LVM's snapshot feature makes it possible to create virtual images of a device at a particular point in time, without causing any service interruption. After a snapshot is taken, when a change is made to the original (origin) device, the snapshot feature creates a copy of the changed data area as it was before the change; this way, the device's previous state can be reconstructed.[^7]
@@ -563,9 +557,9 @@ Let's mount our snapshot to this point.
 Let's take a look at `lv_data1_snap`'s content using the same commands.
 <img src="/assets/images/lvm/snapshotls.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
 As you can see, the data in `/data1` (i.e., in the origin LV `lv_data1`) appears the same way in our snapshot too. Don't let this mislead you though. Because as you know, the "original_file" we see in the snapshot isn't actually a copy stored in the snapshot's own space. It only appears because the read request is redirected to `/data1`. The moment we make a change to the origin, the COW mechanism will kick in, and the old version of the block about to change will be copied to the `/snapshot` area before being overwritten.
-Now we're making a change to the "original_file" file on `/data1.`
+Now we're making a change to the "original_file" file on `/data1`.
 <img src="/assets/images/lvm/modified.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
-After making this change, "original_file" has now truly become a copy stored in the snapshot's own space. It's not redirecting the read request and showing tha data now.
+After making this change, "original_file" has now truly become a copy stored in the snapshot's own space. It's not redirecting the read request and showing the data now.
 <img src="/assets/images/lvm/snapshotreal.png" alt="yenidiskler" class="post-img post-img--left" style="max-width: 550px;">
 Don't let the fact that I changed both the name of the "original_file" file and its content in this example make you think LVM snapshot operates at the file level. LVM snapshot doesn't operate at the file level, but at the block level. I used this approach so you could clearly see the difference and follow along more easily.
 

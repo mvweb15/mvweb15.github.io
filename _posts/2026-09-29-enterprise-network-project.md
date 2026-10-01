@@ -82,7 +82,7 @@ Here is an example of port assignments used on Office A's Access switches. You c
 
 <img src="/assets/images/enp/11_port_connections.png" alt="port_connections" class="post-img post-img--left" style="--w: 650px;">
 
-After configuring the VLANs and trunk links, the remaining ports on Access switches (including the Internal Servers and DMZ switches) were configured as access ports for their assigned VLANs, and all unused ports were administratively disabled. VLANs **are also** configured on the Distribution switches for inter-VLAN routing. You can find all configurations of part 2 here:
+After configuring the VLANs and trunk links, the remaining ports on Access switches (including the Internal Servers and DMZ switches) were configured as access ports for their assigned VLANs, and all unused ports were administratively disabled. VLANs are also configured on the Distribution switches for inter-VLAN routing.
 
 ### L2 EtherChannels
 
@@ -146,8 +146,6 @@ Loopbacks are only assigned to Layer 3 devices. The firewalls are excluded becau
 
 <img src="/assets/images/enp/22_loopbackips.png" alt="loopbackips" class="post-img post-img--left" style="--w: 200px;">
 
-You can find all the configurations on this link:
-
 ### HSRP
 
 After configuring IP addresses on each device, Cisco proprietary protocol HSRP (Hot Standby Router Protocol) was configured on the Distribution switches. As you might know, HSRP gives each VLAN a single shared virtual gateway IP. End devices are only aware of this one gateway IP. If the switch currently forwarding for a VLAN fails, the other takes over automatically, without making a change on the client side.
@@ -181,7 +179,7 @@ PortFast and BPDU Guard have been configured for all end-host and server ports. 
 
 Configuration of DMZ_SW1 was the same even though Firewall-2’s DMZ interfaces are shut down. DMZ_SW1 is the only switch in the DMZ. Because of this, there is no loop to manage. However, I still configured Rapid PVST+ mode, PortFast, and BPDU Guard on DMZ_SW1’s server-facing ports for consistency.
 
-WLC_A, WLC_B and the access points are an exception since they connect over trunk ports. I used the command spanning-tree portfast trunk rather than the usual command, since the usual one has no effect on trunk ports. PortFast and BPDU Guard were not enabled on inter-switch connections like DSW-to-ASW trunk links, CSW uplinks, and EtherChannel members, as these connections could actually create loop formations. This way the proper operation of Rapid PVST+ can be maintained.
+WLC_A, WLC_B and the access points are an exception since they connect over trunk ports. I used the command `spanning-tree portfast trunk` rather than the usual command, since the usual one has no effect on trunk ports. PortFast and BPDU Guard were not enabled on inter-switch connections like DSW-to-ASW trunk links, CSW uplinks, and EtherChannel members, as these connections could actually create loop formations. This way the proper operation of Rapid PVST+ can be maintained.
 
 Both Layer 2 and Layer 3 redundancy are now synchronized, ensuring that all VLAN traffic travels through the most efficient path. Additionally, PortFast and BPDU Guard for end-host ports improved user connectivity speed while providing security against unauthorized switches being plugged in.
 
@@ -192,12 +190,12 @@ This part got a bit long because I encountered a Packet Tracer limitation while 
 
 I used multi-area instead of a single Area 0. Area 0 covers the Firewall links, the Core switches, the EtherChannel between them and VLAN 300. Area 10 is Office A, Area 20 is Office B, so the Core switches end up as ABRs. In production a network this size would just use one area. I picked multi-area on purpose, and built it this way to show how it would work at scale.
 
-Router IDs are statically assigned using loopbacks. Otherwise, the router would select its own automatically, but then this ID could be different when the router reboots again. The command auto-cost reference-bandwidth 10000 is enabled in all routers in order to make OSPF able to distinguish the speeds of links. All users SVI, VLAN 300, all loopbacks and the firewall interfaces of core switches are passive. MD5 authentication with the password OSPFKEY123 is enabled in all three areas and the /30 links have ip ospf network point-to-point configuration since there is no need to elect the DR/BDR on this link.
+Router IDs are statically assigned using loopbacks. Otherwise, the router would select its own automatically, but then this ID could be different when the router reboots again and that causes problems. The command `auto-cost reference-bandwidth 10000` is enabled in all routers in order to make OSPF able to distinguish the speeds of links. All users SVI, VLAN 300, all loopbacks and the firewall interfaces of core switches are passive. MD5 authentication with the password OSPFKEY123 is enabled in all three areas and the /30 links have ip ospf network point-to-point configuration since there is no need to elect the DR/BDR on this link.
 ### Route Summarization
 
 As a reminder from the IP addressing part, each office has a /22 block, and every VLAN in it fits inside the first half of that block. That means Office A can be summarized as 172.16.0.0/23 and Office B as 172.16.4.0/23. This is a design choice because it allows summarization. Therefore, the rest of Area 0 will not have to know every VLAN subnet in each office. It will be enough for Area 0 to have one route for each office. The ABR devices, in this case, the Core switches, will have information about all routes, while everything else will not.
 
-However, you cannot actually see the advantage in this network since I do not use OSPF in the firewalls. This is also a design choice. A firewall is a policy boundary, and if it ran OSPF, the inside and the outside would share the same routing information. So static routes carry traffic through the firewalls in both directions instead. As a result, Area 0 has no device other than the Core switches that could use the summaries. The Core switches create the summaries, but none of the devices use them.
+However, you cannot actually see the advantage in this network since I do not use OSPF in the firewalls. This is also a design choice. A firewall is a policy boundary, and if it ran OSPF, the inside and the outside would share the same routing information. This is not what I wanted. So static routes carry traffic through the firewalls in both directions instead. As a result, Area 0 has no device other than the Core switches that could use the summaries. The Core switches create the summaries, but none of the devices use them.
 
 Still, for a network that has many more Cores and Distribution switches than the one that I have designed, this is where the benefits start to pay off. Instead of having all the exact routes in every office, each Core will just have a few summaries. This is the reason why I built it this way, to show again how it would work at scale.
 
@@ -218,7 +216,7 @@ Before blaming the simulator I went to the database because that's where a confi
 
 Everything was where it should be. The LSAs were right, both adjacencies were FULL, the Core had all the information it needed. The inputs to SPF were correct but the outputs were wrong.
 
-I tried using the command clear ip ospf process and it did nothing. Switching to broadcast dropped the adjacencies and also fixed nothing. I widened the gap all the way to 1 against 65000. This changed which switch got picked globally, but several prefixes still went the wrong way. To be completely sure, I rebuilt the entire test in Office B on a different pair of switches, and the result was exactly the same.
+I tried using the command `clear ip ospf` process and it did nothing. Switching to broadcast dropped the adjacencies and also fixed nothing. I widened the gap all the way to 1 against 65000. This changed which switch got picked globally, but several prefixes still went the wrong way. To be completely sure, I rebuilt the entire test in Office B on a different pair of switches, and the result was exactly the same.
 
 After that I looked it up and Cisco's own documentation says Packet Tracer simulates IOS rather than emulating it. Other people have run into the same kind of thing in multi-area setups too. SPF doesn't seem to evaluate stub links per prefix the way real OSPF does.
 
@@ -262,7 +260,7 @@ After completing the configuration, I tested DHCP on PC2 (HR) and it worked corr
 
 ### DNS
 
-DHCP assigns 172.16.8.4 as the DNS server on every pool so DNS_1 is the DNS server the entire network uses. It resolves www.company.com, the company's own website in the DMZ, itself as a plain A record, while google, youtube and mvtechblog are all delegated.
+DHCP assigns 172.16.8.4 as the DNS server on every pool so DNS_1 is the DNS server the entire network uses. It resolves www.company.com, the company's own website in the DMZ, as a plain A record, while google, youtube and mvtechblog are all delegated.
 
 This shows how DNS delegation works in a real enterprise network, where internal and external name resolution are handled by separate servers instead of one server holding every record. The delegation is set up on DNS_1 with an NS record for each domain pointing at dns2server, plus an A record for dns2server itself:
 
@@ -288,9 +286,7 @@ I checked the configuration of all IOS devices. Here is an example configuration
 
 <img src="/assets/images/enp/35_ntp.png" alt="ntp" class="post-img post-img--left" style="--w: 650px;">
 
-DMZ_SW1 and Edge Routers are an exception because their NTP request goes through the firewall into the inside zone which is blocked by the default ASA configuration and thus remain unsynchronized until the ACL part where I open the access rule for them.
-
-Firewalls are configured in the same way, but without the timezone line since Packet Tracer ASA doesn't have clock timezone.
+DMZ_SW1 and Edge Routers are an exception because their NTP request goes through the firewall into the inside zone which is blocked by the default ASA configuration and thus remain unsynchronized until the ACL part where I open the access rule for them. Firewalls are configured in the same way, but without the timezone line since Packet Tracer ASA doesn't have clock timezone.
 
 Remember that NTP synchronization takes a lot of time. You won't see the synchronization on opening the Packet Tracer file.
 
@@ -369,7 +365,7 @@ Both Edge Routers carry the same DMZ translations, so the servers stay reachable
 
 ### Multihoming and BGP
 
-Each Edge Router peers with its own provider over eBGP, and both advertise the company's block. On the outgoing path, the entire network will utilize EDGE_R1. The firewall default gateway routes will use EDGE_R1, with EDGE_R2 being secondary but with a higher administrative distance value. In case of a failure in EDGE_R1, the link will fail, and the firewall will switch over to EDGE_R2 automatically.
+Each Edge Router peers with its own provider over eBGP, and both advertise the company's block. On the outgoing path, the entire network will use EDGE_R1. The firewall default gateway routes will use EDGE_R1, with EDGE_R2 being secondary but with a higher administrative distance value. In case of a failure in EDGE_R1, the link will fail, and the firewall will switch over to EDGE_R2 automatically.
 
 If the link to ISP_1 goes down, EDGE_R1 loses its default route, and a floating static route forwards the traffic to EDGE_R2. This will actually be iBGP in production; however, this feature is not supported in Packet Tracer.
 
@@ -386,7 +382,7 @@ The mail server is placed within the DMZ at IP address 172.16.12.3, which appear
 
 To connect to it, clients use the name. The name mail.company.com is delegated from DNS_1 to DNS_2 as any other external domain name is delegated, and DNS_2 stores the name. In the real-life scenario, the entire company.com zone should be delegated only once, and all the names below it would be delegated automatically. In Packet Tracer, each name is delegated individually since DNS server matches names exactly.
 
-I tested it between PC1 in Office A and PC5 in Office B. The ACLs block any direct connection between the two offices, but both can reach the DMZ, so they still exchange mail through the shared server. That is the intended shape: the offices are kept apart, and common services sit in between.
+I tested it between PC1 in Office A and PC5 in Office B. The ACLs block any direct connection between the two offices, but both can reach the DMZ, so they still exchange mail through the shared server. That is the intended shape. The offices are kept apart, and common services sit in between.
 
 From the internet, only SMTP and POP3 are opened to the mail server on the firewall. Both protocols send credentials and content in clear text here. In production they would run over TLS, which Packet Tracer's mail server does not support.
 
@@ -457,7 +453,7 @@ The APs don't have a fixed address. Packet Tracer's lightweight AP only takes it
 
 <img src="/assets/images/enp/51_apgroups.png" alt="apgroups" class="post-img post-img--left" style="--w: 650px;">
 
-In a campus that has its own controller, WLANs normally use central switching: the AP tunnels client traffic back to the controller, and the controller puts it on the right VLAN. I set it up that way first, but Packet Tracer's controller does not tag client traffic in this mode. Every client landed in the Management VLAN and took an address from the AP pool, which the MAC address table on the controller's switch port confirmed. So the WLANs use local switching (FlexConnect) instead. The AP tags the traffic itself and hands it to its own Access switch, which is why the AP ports are trunks that carry the department VLAN plus the Management VLAN as native, and the controller's trunk only needs the Management VLAN. FlexConnect is normally the choice for branch offices without a local controller; here it works around the simulator.
+In a campus that has its own controller, WLANs normally use central switching. The AP tunnels client traffic back to the controller, and the controller puts it on the right VLAN. I set it up that way first, but Packet Tracer's controller does not tag client traffic in this mode. Every client landed in the Management VLAN and took an address from the AP pool, which the MAC address table on the controller's switch port confirmed. So the WLANs use local switching (FlexConnect) instead. The AP tags the traffic itself and hands it to its own Access switch, which is why the AP ports are trunks that carry the department VLAN plus the Management VLAN as native, and the controller's trunk only needs the Management VLAN. FlexConnect is normally the choice for branch offices without a local controller; here it works around the simulator.
 
 <img src="/assets/images/enp/52_aswa3_trunkinterfaces.png" alt="aswa3_trunkinterfaces" class="post-img post-img--left" style="--w: 650px;">
 
