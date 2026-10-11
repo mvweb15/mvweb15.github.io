@@ -4,7 +4,7 @@ tags: [Cisco]
 cover: /assets/images/enp/enp_cover.jpg
 ---
 
-In this post, I'll walk through a two-office enterprise network project I designed using the 3-Tier Network Architecture. The scenario is as follows:
+In this post, I'll walk through a two-office enterprise network project I designed using the 3-Tier Network Architecture. The scenario is as follows.
 
 A company has two offices: Office A and Office B. Each office has multiple departments isolated into their own VLANs. The network is designed with a three-tier architecture, using dual Core and Distribution switches. Both offices are buildings on the same site, connected by fiber, and Office B is the main building that houses the core, the servers and the internet edge. At this size a collapsed core would be enough. I chose the three-tier design on purpose to show a real network design and it leaves room to add another building without touching the existing ones. In the next chapters, I’ll explain in detail how I designed and configured this network from scratch. I will also explain the reasons behind configuration decisions. All configuration files, diagrams and notes are available on [https://github.com/mvltblt/network-configurations/tree/main](https://github.com/mvltblt/network-configurations/tree/main)
 
