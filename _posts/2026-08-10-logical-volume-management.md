@@ -1,6 +1,6 @@
 ---
 title: "Logical Volume Management"
-tags: [LVM]
+tags: [Linux]
 cover: /assets/images/cover-lvm.jpg
 ---
 Before I start explaining Logical Volume Management (LVM), I would like to briefly talk about why I wrote this post and what it covers. Although there are many articles about LVM on the internet, I noticed one thing while researching this topic. Some of the articles weren't explanatory or comprehensive enough. This is why I wanted to gather what I've learned into this article, explaining it as a complete whole, starting from physical disks, which are the foundation of this subject, all the way up to its top layer. First, we'll take a look at a situation that arises in a system without LVM. After this, I will explain what LVM is and describe its structure by showing how it solves this situation. Then, I'll go over the other advantages of LVM.
