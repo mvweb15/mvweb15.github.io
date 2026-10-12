@@ -6,7 +6,7 @@ cover: /assets/images/enp/enp_cover.jpg
 
 In this post, I'll walk through a two-office enterprise network project I designed using the 3-Tier Network Architecture. The scenario is as follows.
 
-A company has two offices: Office A and Office B. Each office has multiple departments isolated into their own VLANs. The network is designed with a three-tier architecture, using dual Core and Distribution switches. Both offices are buildings on the same site, connected by fiber, and Office B is the main building that houses the core, the servers and the internet edge. At this size a collapsed core would be enough. I chose the three-tier design on purpose to show a real network design and it leaves room to add another building without touching the existing ones. In the next chapters, I’ll explain in detail how I designed and configured this network from scratch. I will also explain the reasons behind configuration decisions. All configuration files, diagrams and notes are available on [https://github.com/mvltblt/network-configurations/tree/main](https://github.com/mvltblt/network-configurations/tree/main)
+A company has two offices: Office A and Office B. Each office has multiple departments isolated into their own VLANs. The network is designed with a three-tier architecture, using dual Core and Distribution switches. Both offices are buildings on the same site, connected by fiber, and Office B is the main building that houses the core, the servers and the internet edge. At this size a collapsed core would be enough. I chose the three-tier design on purpose to show a real network design and it leaves room to add another building without touching the existing ones. In the next chapters, I’ll explain in detail how I designed and configured this network from scratch. I will also explain the reasons behind configuration decisions. All configuration files, the Packet Tracer file, diagrams and notes are available on [GitHub](https://github.com/mvltblt/network-configurations/tree/main).
 
 <img src="/assets/images/enp/networkdiagram.png" alt="networkdiagram" class="post-img" style="--w: 850px;">
 
@@ -14,7 +14,7 @@ A company has two offices: Office A and Office B. Each office has multiple depar
 
 ### Initial Configuration
 
-The first step is configuring the matching hostnames on each device as shown in the diagram. Before configuring an enable secret on each device, I used the `enable secret ?` command to check the supported hashing types. Routers and Access Switches support type 5 hashing (MD5), while Distribution and Core Switches support type 9 (scrypt). Firewalls only support `enable password`, because ASA hashes automatically using a strong algorithm (PBKDF2). Unlike IOS devices, there's no manual hash-type selection here.
+The first step is configuring the matching hostnames on each device as shown in the diagram. Before configuring an enable secret on each device, I used the `enable secret ?` command to check the supported hashing types. Routers and Access Switches support type 5 hashing (MD5), while Distribution and Core Switches support type 9 (scrypt). Firewalls only support `enable password`, because the ASA hashes the password automatically. Unlike IOS devices, there’s no manual hash-type selection here.
 
 To avoid repetition, I’ll only give one example per scenario. Same logic applies to similar devices depending on the scenario.
 
@@ -34,7 +34,7 @@ On each device, except firewalls, an enable secret of "1234" (lab only) was conf
 
 Unlike IOS devices, ASA firewalls don’t have the `line console 0` model. Because of this, local authentication for console and SSH access is enforced through AAA, which I will cover in a later section together with the SSH setup. At this stage, only the hostname, enable password and local user account were configured on the firewalls.
 
-A 15-minute inactivity timeout was also configured for security on the IOS-based devices, along with synchronous logging for convenience. You can find all of the commands for each device on GitHub.
+A 15-minute inactivity timeout was also configured for security on the IOS-based devices, along with synchronous logging for convenience. You can find all of the commands for each device on GitHub: [Configurations for this part](https://github.com/mvltblt/network-configurations/tree/main/Part-1-Setup)
 
 ## Part 2 - VLANs, Trunk Links and L2 EtherChannels
 
@@ -78,7 +78,7 @@ Trunks are also used for the ports that connect to access points. The APs use lo
 
 The link between WLC_A and ASW_A4 is also a trunk, but this trunk includes only VLAN 199 (Management). Client traffic does not go through the controller, thus the controller only has to communicate with its access points. This connection remains a trunk in order to be able to implement central switching in the future without any need to change the port type. The native VLAN for this link has been set to VLAN 199 (Management) as opposed to VLAN 938 (which is not being used anywhere) in order for the traffic of the controller to be directed to VLAN 199 properly.
 
-Here is an example of port assignments used on Office A's Access switches. You can find all of the port assignments for every device in the topology at the link:
+Here is an example of port assignments used on Office A's Access switches. You can find all of the port assignments for every device in the topology in the [port map](https://github.com/mvltblt/network-configurations/blob/main/PORT-MAP.md).
 
 <img src="/assets/images/enp/11_port_connections.png" alt="port_connections" class="post-img post-img--left" style="--w: 650px;">
 
@@ -94,11 +94,13 @@ Each pair of Distribution switches actively tries to form an EtherChannel, meani
 
 EtherChannels are also configured as trunk links. Unlike the Access-Distribution trunks, I allowed all VLANs here since both Distribution switches must be able to carry traffic for any VLAN in the offices, especially during failover scenarios. DTP is explicitly disabled and all unused ports on Distribution switches are administratively disabled.
 
+[Configurations for this part](https://github.com/mvltblt/network-configurations/tree/main/Part-2-VLANs,%20Trunk%20Links%20and%20L2%20EtherChannels)
+
 ## Part 3 - IP Addresses, HSRP and L3 EtherChannels
 
 ### IP Addresses
 
-You can see the number of employees and devices in the company below. The “IPs Required” column doesn’t match the number of employees or devices. I applied a growth factor of x4 to each department, but not to every row. Phones stay close to the employee count, since each employee just gets one desk phone.  Guest Wi-Fi in both offices is sized as assumption for visitors, and Management is sized from the number of network devices.
+You can see the number of employees and devices in the company below. The “IPs Required” column doesn’t match the number of employees or devices. I applied a growth factor of x4 to each department, but not to every row. Phones stay close to the employee count, since each employee just gets one desk phone. Guest Wi-Fi in both offices is sized as an assumption for visitors, and Management is sized from the number of network devices.
 
 <img src="/assets/images/enp/13_office_ips.png" alt="office_ips" class="post-img post-img--left" style="--w: 650px;">
 
@@ -132,7 +134,7 @@ You can also see the full table, including servers:
 
 <img src="/assets/images/enp/20_segmetsfulltable.png" alt="segmetsfulltable" class="post-img post-img--left" style="--w: 650px;">
 
-For Point-to-Point connections, I used a different subnet, 10.255.254.0/24, to keep them easy to read and clearly distinguish from the VLAN address space. For loopback addresses, I used another dedicated subnet, 10.255.255.0/24. The third octet, .254 means Point-to-Point link and .255 means loopback. This makes it easier to recognize. The links to the two ISPs are the exception because their addresses come from the providers, 198.51.100.0/30 from ISP_1 and 192.0.2.0/30 from ISP_2.
+For Point-to-Point connections, I used a different subnet, 10.255.254.0/24, to keep them easy to read and clearly distinguish from the VLAN address space. For loopback addresses, I used another dedicated subnet, 10.255.255.0/24. The third octet, .254 means Point-to-Point link and .255 means loopback. This makes it easier to recognize. The links to the two ISPs are the exception because their addresses come from the providers, 198.51.100.0/30 from ISP_1 and 192.0.2.0/30 from ISP_2. These ranges, like the company's 203.0.113.0/24 in the NAT section, are documentation ranges reserved by RFC 5737 and stand in for real public addresses.
 
 <img src="/assets/images/enp/21_p2ptable.png" alt="p2ptable" class="post-img post-img--left" style="--w: 575px;">
 
@@ -162,9 +164,11 @@ Priority was 110 for Active and 90 for Standby across every VLAN and preempt was
 
 ### L3 EtherChannel
 
-EtherChannel between CSW_1 and CSW_2 was configured as Layer 3 Etherchannel because unlike Distribution switches, the Core switches do not carry any VLANs so there is no trunk, no native and no HSRP involved here. The ports were converted to routed ports and a single IP address was assigned directly to the logical Port-channel1 interface. This is the same way you would address any other routed point-to-point link. Instead, redundancy for this connection is handled by OSPF, which I will cover in a later part.
+EtherChannel between CSW_1 and CSW_2 was configured as a Layer 3 EtherChannel. Unlike the Distribution switches, the link between the Core switches doesn't need to carry any VLANs. VLAN 300 already connects both of them at Layer 2 through SRV_SW1 and SRV_SW2, so there is no trunk, no native VLAN and no HSRP on this link. The ports were converted to routed ports and a single IP address was assigned directly to the logical Port-channel1 interface. This is the same way you would address any other routed point-to-point link. Instead, redundancy for this connection is handled by OSPF, which I will cover in a later part.
 
 PAgP, a Cisco proprietary protocol was used for this L3 EtherChannel. Both switches actively try to form the channel using the desirable mode.
+
+[Configurations for this part](https://github.com/mvltblt/network-configurations/tree/main/Part-3-%20IP%20Addresses,%20HSRP,%20L3%20EtherChannels)
 
 ## Part 4 - Rapid Per-VLAN Spanning Tree Plus
 
@@ -173,9 +177,10 @@ You might be wondering why I configured Rapid PVST+ after the IP addressing part
 If HSRP and Rapid PVST+ are misconfigured, traffic will not be routed via the optimal path. For instance, if HSRP Active for a specific VLAN is DSW_A1 and the Root Bridge is DSW_A2, all traffic must go through DSW_A2 because it is the Root Bridge. This is an extra hop that is not necessary and results in latency and extra load on the link.
 
 {% include video-loop.html src="/assets/images/enp/25_pvstp_video.mp4" class="video-loop--medium" %}
+
 VLANs 100, 110, 140, and 199 would be Active on DSW_A1 according to the HSRP priorities I configured before. VLANs 120, 130, and 150 would be Active on DSW_A2. In order to keep Layer 2 and Layer 3 in sync, I configured DSW_A1 as Root Bridge for its own VLAN group and Secondary Root for the other VLAN group. DSW_A2 was configured the other way round. On Access switches, I only changed their STP mode to Rapid PVST+. The priority of leaf switches remained unchanged since they were not supposed to become root.
 
-PortFast and BPDU Guard have been configured for all end-host and server ports. In Rapid PVST+, the port takes a few seconds before it reaches the forwarding state. PortFast bypasses the entire process; hence, the port goes into the forwarding state straight away because there is no possibility of any loop formed by the end-hosts and servers. The configuration of BPDU Guard was done because in case any BPDU is detected on the ports, then the port will be shut down instantly.
+PortFast and BPDU Guard have been configured for all end-host and server ports. Without it, a port in Rapid PVST+ that doesn't hear another switch waits about 30 seconds before it reaches the forwarding state. PortFast bypasses the entire process; hence, the port goes into the forwarding state straight away because there is no possibility of any loop formed by the end-hosts and servers. The configuration of BPDU Guard was done because in case any BPDU is detected on the ports, then the port will be shut down instantly.
 
 Configuration of DMZ_SW1 was the same even though Firewall-2’s DMZ interfaces are shut down. DMZ_SW1 is the only switch in the DMZ. Because of this, there is no loop to manage. However, I still configured Rapid PVST+ mode, PortFast, and BPDU Guard on DMZ_SW1’s server-facing ports for consistency.
 
@@ -183,21 +188,23 @@ WLC_A, WLC_B and the access points are an exception since they connect over trun
 
 Both Layer 2 and Layer 3 redundancy are now synchronized, ensuring that all VLAN traffic travels through the most efficient path. Additionally, PortFast and BPDU Guard for end-host ports improved user connectivity speed while providing security against unauthorized switches being plugged in.
 
+[Configurations for this part](https://github.com/mvltblt/network-configurations/tree/main/Part-4-Rapid%20PVST+)
 
 ## Part 5 - OSPF
 
 This part got a bit long because I encountered a Packet Tracer limitation while setting up OSPF. The configuration includes a workaround and because of it, I would rather explain the whole configuration than leave something in the files that makes no sense.
 
-I used multi-area instead of a single Area 0. Area 0 covers the Firewall links, the Core switches, the EtherChannel between them and VLAN 300. Area 10 is Office A, Area 20 is Office B, so the Core switches end up as ABRs. In production a network this size would just use one area. I picked multi-area on purpose, and built it this way to show how it would work at scale.
+I used multi-area instead of a single Area 0. Area 0 covers the Firewall links, the Core switches, the EtherChannel between them and VLAN 300. Area 10 is Office A, Area 20 is Office B, so the Core switches end up as ABRs. In production a network this size would just use one area. I picked multi-area on purpose, and built it this way to show how it would work at scale. The Edge Routers also run OSPF on the link between them, mainly to exchange loopbacks. Since the firewalls don't run OSPF, this is a separate routing domain from the inside network.
 
 Router IDs are statically assigned using loopbacks. Otherwise, the router would select its own automatically, but then this ID could be different when the router reboots again and that causes problems. The command `auto-cost reference-bandwidth 10000` is enabled in all routers in order to make OSPF able to distinguish the speeds of links. All users SVI, VLAN 300, all loopbacks and the firewall interfaces of core switches are passive. MD5 authentication with the password OSPFKEY123 is enabled in all three areas and the /30 links have ip ospf network point-to-point configuration since there is no need to elect the DR/BDR on this link.
+
 ### Route Summarization
 
 As a reminder from the IP addressing part, each office has a /22 block, and every VLAN in it fits inside the first half of that block. That means Office A can be summarized as 172.16.0.0/23 and Office B as 172.16.4.0/23. This is a design choice because it allows summarization. Therefore, the rest of Area 0 will not have to know every VLAN subnet in each office. It will be enough for Area 0 to have one route for each office. The ABR devices, in this case, the Core switches, will have information about all routes, while everything else will not.
 
-However, you cannot actually see the advantage in this network since I do not use OSPF in the firewalls. This is also a design choice. A firewall is a policy boundary, and if it ran OSPF, the inside and the outside would share the same routing information. This is not what I wanted. So static routes carry traffic through the firewalls in both directions instead. As a result, Area 0 has no device other than the Core switches that could use the summaries. The Core switches create the summaries, but none of the devices use them.
+However, the summaries can't be used in Area 0 since I do not use OSPF in the firewalls. This is also a design choice. A firewall is a policy boundary, and if it ran OSPF, the inside and the outside would share the same routing information. This is not what I wanted. So static routes carry traffic through the firewalls in both directions instead. As a result, Area 0 has no device other than the Core switches that could use the summaries. The summaries still pay off in the offices, though. Each Core advertises one office's summary into the other office's area, so Office A's Distribution switches reach all of Office B through a single 172.16.4.0/23 route, and Office B's reach Office A through 172.16.0.0/23.
 
-Still, for a network that has many more Cores and Distribution switches than the one that I have designed, this is where the benefits start to pay off. Instead of having all the exact routes in every office, each Core will just have a few summaries. This is the reason why I built it this way, to show again how it would work at scale.
+In a network with many more Cores and Distribution switches than this one, the benefit grows. Instead of having all the exact routes in every office, each device will just have a few summaries. This is the reason why I built it this way, to show again how it would work at scale.
 
 The plan was for this to work with the per-VLAN cost design. Summarization helps to keep the routing tables smaller at the area boundaries. The cost values of the SVIs define which Distribution switch would serve each VLAN. This solution makes all VLANs connect to one switch each with a routing table minimized. The summarization procedure works just as I planned it. The problem with the cost-based strategy is caused by Packet Tracer.
 
@@ -218,9 +225,10 @@ Everything was where it should be. The LSAs were right, both adjacencies were FU
 
 I tried using the command `clear ip ospf` process and it did nothing. Switching to broadcast dropped the adjacencies and also fixed nothing. I widened the gap all the way to 1 against 65000. This changed which switch got picked globally, but several prefixes still went the wrong way. To be completely sure, I rebuilt the entire test in Office B on a different pair of switches, and the result was exactly the same.
 
-After that I looked it up and Cisco's own documentation says Packet Tracer simulates IOS rather than emulating it. Other people have run into the same kind of thing in multi-area setups too. SPF doesn't seem to evaluate stub links per prefix the way real OSPF does.
+Packet Tracer is a simulator, not an emulator. It reproduces how IOS behaves instead of running the real IOS code, so some features don't behave exactly like they do on real hardware. Other people have run into the same kind of thing in multi-area setups too. SPF doesn't seem to evaluate stub links per prefix the way real OSPF does.
 
 ### The workaround
+
 The cost was right, but the simulator didn't use the values. Therefore, I manually configured the paths using static routes for each of the Cores, one per VLAN.
 
 Since distance 1 is better than OSPF's 110, these paths override OSPF while both switches are alive, however, failover remains OSPF's responsibility. If a Distribution switch dies, the path is lost, static route becomes unreachable due to non-existing next-hop, and OSPF uses its route via another switch. After the Distribution switch restarts, the static route is also restored. Therefore, the redundancy configuration remains unchanged. All that happened was switching from one of the working paths to another.
@@ -230,9 +238,12 @@ The default route configured by each Distribution switch learned from the Core a
 I have kept both SVI and the cost values even if Packet Tracer does not use them, since that is how things would work on the real hardware. The costs represent the actual configuration while the static routes only ensure that simulation behaves the way it should according to the cost values.
 
 ### VLAN 998
+
 This is the point I was referring to in VLANs section. As all the user VLANs are passive, the two Distribution switches in the office cannot form an adjacency with one another. The EtherChannel formed between the two Distribution switches is a Layer 2 link with no IP configuration at all. It works perfectly fine until both uplinks of that switch fail. The EtherChannel link remains up, but this switch becomes an island for OSPF as it has no neighbors and hence, loses its default route.
 
 The VLAN 998 is a VLAN configured over the same EtherChannel link along with an SVI on both ends, which makes it possible to form an adjacency. This VLAN exists in the office's own area as both the ends are in the office and ip ospf cost 100 makes sure that the VLAN is used only when necessary. This VLAN also covers the hosts. Without any interface tracking in Packet Tracer, the isolated switch stays alive in HSRP, but now it can send the hosts' traffic to its peer via VLAN 998.
+
+[Configurations for this part](https://github.com/mvltblt/network-configurations/tree/main/Part-5-OSPF)
 
 ## Part 6 - Network Services
 
@@ -257,20 +268,29 @@ The Distribution switches relay client requests to the servers using `ip helper-
 After completing the configuration, I tested DHCP on PC2 (HR) and it worked correctly:
 
 <img src="/assets/images/enp/31_dhcp_output.png" alt="dhcp_output" class="post-img post-img--left" style="--w: 750px;">
+
 DHCP_A and DHCP_B have no redundancy here. If DHCP_A fails, new clients in Office A get no address. In production, two servers would run DHCP failover and both would serve every pool. Packet Tracer's DHCP server has no failover, so each office has a single server.
 
 ### DNS
+
 All DHCP pools assign DNS_1 (172.16.8.4), so all clients on the network send their DNS queries to DNS_1. DNS_1 resolves www.company.com and mail.company.com to the private IP addresses of the DMZ servers, while DNS_EXT in the DMZ resolves them to their public IP addresses (203.0.113.130 and 203.0.113.131) for outside users. This is referred to as split-brain DNS.
 
 For other hosts, DNS_1 would normally use a forwarder, but Packet Tracer’s DNS server doesn’t support this feature. Therefore, DNS_1 uses NS entries for google, youtube and mvtechblog that point to PUBLIC_DNS, a server on the provider’s side that stands in for the internet’s DNS. To keep things simple, it runs on the same server as www.google.com.
-<img src="/assets/images/enp/32_dns1.png" alt="dns_output" class="post-img post-img--left" style="--w: 500px;">
+
+<img src="/assets/images/enp/32_dns1.png" alt="dns1" class="post-img post-img--left" style="--w: 500px;">
+
 Actual delegation happens the other way round: PUBLIC_DNS delegates the company.com names to DNS_EXT (ns1.company.com, 203.0.113.132). Packet Tracer does exact matching of names, hence each name is delegated individually instead of delegating the whole zone.
-<img src="/assets/images/enp/33_publicdns.png" alt="dns_output" class="post-img post-img--left" style="--w: 500px;">
-<img src="/assets/images/enp/34_dns_ext.png" alt="dns_output" class="post-img post-img--left" style="--w: 500px;">
+
+<img src="/assets/images/enp/33_publicdns.png" alt="publicdns" class="post-img post-img--left" style="--w: 500px;">
+
+<img src="/assets/images/enp/34_dns_ext.png" alt="dns_ext" class="post-img post-img--left" style="--w: 500px;">
+
 In production, clients would have two internal DNS servers and guests would use a public DNS resolver. In this network, guests use DNS_1 too, but their ACL blocks everything else on the inside.
 
 Here is a test I ran with a simple copy of my own website.
+
 {% include video-loop.html src="/assets/images/enp/34_dns_video.mp4" class="video-loop--medium" %}
+
 Keep in mind that if you're opening this Packet Tracer file for the first time and loading a website for the first time, it can take quite a while to load. You can speed this up with the Fast Forward Time button in the bottom left corner of Packet Tracer.
 
 ### NTP
@@ -322,10 +342,15 @@ The information is useful between the infrastructure devices, but not between th
 Firewalls don’t take part in the process. In the ASA of Packet Tracer, there is no CDP or LLDP command set available.
 
 ### RADIUS
-Each device until now had its own user account in the local storage. This is fine until you need to make changes like adding a new person or changing passwords, and then you need to edit twenty devices individually. The RADIUS moves the users to the central server and requests the devices to communicate with it. The central server is in VLAN 300 at 172.16.8.6. The devices have their IP addresses, shared secret and all user accounts stored in the central server instead of each individual device. The login list in each device asks the permission of the server first and uses the local user account only when it cannot reach the server. Otherwise, a problem with the server would result in locking out all devices simultaneously. 
+
+Each device until now had its own user account in the local storage. This is fine until you need to make changes like adding a new person or changing passwords, and then you need to edit twenty devices individually. The RADIUS moves the users to the central server and requests the devices to communicate with it. The central server is in VLAN 300 at 172.16.8.6. The devices have their IP addresses, shared secret and all user accounts stored in the central server instead of each individual device. The login list in each device asks the permission of the server first and uses the local user account only when it cannot reach the server. Otherwise, a problem with the server would result in locking out all devices simultaneously.
 
 However, this backup plan is not a security weakness because it only applies to the server being unavailable, not for the server providing a rejected response to the authentication request. If RADIUS provides a rejected response, the device considers it as such and rejects the login attempt. The local account acts as the backup account here.
+
+The firewalls are the exception. They keep authenticating console and SSH logins with their local account (`aaa authentication ssh console LOCAL`).
+
 The same RADIUS server is used to authenticate the employees on the corporate wireless local area networks that I configured in the Wireless configuration section. The two wireless controllers are configured as RADIUS clients with a different shared secret from the one that is used by the network devices. The RADIUS server in Packet Tracer has one user list for all the clients and so the Wi-Fi user can also connect to the switch. However, the VTY access list and physical console access prevent that from happening. In practice, there is a certain policy applied to each request; for instance, the NPS in Windows only allows the members of a certain AD group such as Network Admins access to the network devices.
+
 One note on the port number. 1645 is the old Cisco default, while the standard ports are 1812 and 1813. Packet Tracer's server listens on 1645, so that is what the clients use.
 
 <img src="/assets/images/enp/39_radius.png" alt="radius" class="post-img post-img--left" style="--w: 700px;">
@@ -338,7 +363,7 @@ An RSA key cannot be generated without a domain name, because the key is named a
 
 Restricting the VTY lines to SSH transport is what actually closes the door. Otherwise, Telnet would still be possible despite configuring SSH at the same time. Also VTY lines use the RADIUS list of logins configured previously, discard connections that are idle for 15 minutes, and disable interrupting log messages while entering something.
 
-There are three exceptions to the rule above: SRV_SW1, SRV_SW2 and DMZ_SW1 don't accept `login authentication default` on their VTY lines. They still use the RADIUS login list, because with AAA enabled the default list applies automatically.
+There are three exceptions to the rule above: SRV_SW1, SRV_SW2 and DMZ_SW1 don't accept `login authentication default` on their VTY lines. They still use the RADIUS login list, because with AAA enabled the default list applies automatically. The access switches are another exception. Packet Tracer's 2960 accepts the newer `radius server` block but doesn't use it, so they point to the server with the older `radius-server host` command instead.
 
 The firewalls have another approach. ASA firewall restricts access to SSH by source address and interface rather than by means of a VTY access-list, meaning that it states which network addresses and interfaces are allowed access. There is no ssh version command in Packet Tracer’s ASA, therefore, it will remain at default.
 
@@ -359,7 +384,9 @@ The company has an IP block 203.0.113.0/24 and announces it to both providers. T
 Both Edge Routers carry the same DMZ translations, so the servers stay reachable when one of them is gone.
 
 <img src="/assets/images/enp/42_nat_translatios.png" alt="nat_translatinos" class="post-img post-img--left" style="--w: 650px;">
+
 In most networks of this size, the firewall connects to the providers directly and does the NAT itself, so translation happens on a stateful device. I placed Edge Routers in front of the firewalls to show eBGP multihoming, which is why NAT runs on the routers here.
+
 ### Multihoming and BGP
 
 Each Edge Router peers with its own provider over eBGP, and both advertise the company's block. On the outgoing path, the entire network will use EDGE_R1. The firewall default gateway routes will use EDGE_R1, with EDGE_R2 being secondary but with a higher administrative distance value. In case of a failure in EDGE_R1, the link will fail, and the firewall will switch over to EDGE_R2 automatically.
@@ -368,7 +395,7 @@ If the link to ISP_1 goes down, EDGE_R1 loses its default route, and a floating 
 
 The inbound traffic, on the other hand, is what the BGP does best. In case of failure of the session by the provider, the provider will stop advertising the subnet, and therefore the internet will access the network through the other provider. Static routing cannot accomplish this.
 
-Traffic returning has to be directed at the router where the NAT is done because there is no sharing of the state information between the two routers. Usually, you extend the alternate path through AS-path prepending, however, Packet Tracer’s BGP does not have route-map, weight or default-originate. Thus, EDGE_R1 advertises 203.0.113.128/25 and EDGE_R2 advertises the covering /24. The more specific route wins, therefore, addresses advertised by R1 are going through R1 when it is active and fail over to the /24 when it is not.
+Traffic returning has to be directed at the router where the NAT is done because there is no sharing of the state information between the two routers. Usually, you extend the alternate path through AS-path prepending, however, Packet Tracer’s BGP does not have route-map, weight or default-originate. Thus, EDGE_R1 advertises 203.0.113.128/25 and EDGE_R2 advertises the covering /24. The more specific route wins, therefore, addresses advertised by R1 are going through R1 when it is active and fail over to the /24 when it is not. On the real internet this /25 would be filtered, since providers don't accept anything longer than a /24. It only works here because the provider side is simulated; in production the same result comes from AS-path prepending or BGP communities.
 
 The firewall does not influence the process of choosing the best route. Packet Tracer’s ASA does not support SLA monitoring to check the provider, and no interface tracking is available as well, thus two standard ways of automatic failover of the gateway are out of use. Also, there is a peculiar behavior of the ARP table: ASA resolves destination IP address rather than the next hop IP and uses the router’s proxy ARP; thus, once failover occurs, ASA still has the MAC of the previous router and must clear the table.
 
@@ -377,17 +404,19 @@ The two providers' routers have been connected, with an Internet core behind the
 Owning a provider-independent /24 and running BGP with two providers is what larger organizations do. A company with fewer than a hundred people would more often use the addresses each provider assigns and let the firewall fail over between the two links. I built it this way to show how multihoming works.
 
 ### E-mail
+
 The mail server is placed within the DMZ at IP address 172.16.12.3, which appears as 203.0.113.131 to the internet. It serves the domain name company.com using SMTP protocol for sending and POP3 protocol for incoming mail, and the accounts of users are located on the server. Clients reach it by name. DNS_1 answers mail.company.com with the server's private address, and DNS_EXT answers outside users with the public one.
 
-I tested it between PC1 in Office A and PC5 in Office B. The ACLs block any direct connection between the two offices, but both can reach the DMZ, so they still exchange mail through the shared server. That is the intended shape. The offices are kept apart, and common services sit in between.
+I tested it between PC1 in Office A and PC5 in Office B. The ACLs block direct connections between the two offices, except ping, but both can reach the DMZ, so they still exchange mail through the shared server. That is the intended shape. The offices are kept apart, and common services sit in between.
 
-From the internet, only SMTP and POP3 are opened to the mail server on the firewall. Both protocols send credentials and content in clear text here. In production they would run over TLS, which Packet Tracer's mail server does not support. 
+From the internet, only SMTP and POP3 are opened to the mail server on the firewall. Both protocols send credentials and content in clear text here. In production they would run over TLS, which Packet Tracer's mail server does not support.
 
 Hosting mailboxes on a DMZ server is rare today. A company of this size would use Microsoft 365 or Google Workspace. An on-premises Exchange server would sit on the inside network, with only a mail gateway in the DMZ.
 
 <img src="/assets/images/enp/43_email.png" alt="email" class="post-img post-img--left" style="--w: 700px;">
 
 ### FTP
+
 172.16.8.7 is an FTP and TFTP server. The TFTP is provided to clients via DHCP service. FTP is used to send any critical data due to the authentication process which is performed while TFTP does not require one. In our case FTP is used for backup purposes. The configurations and IOS images are loaded from devices to the server and vice versa. There is a username and password which are provided for the server for each of the devices separately since the copy command does not prompt for them.
 
 The configuration of the firewall was also required for this task. The Edge Routers and DMZ_SW1 devices do not belong to the inside zone and therefore FTP access to them had to be enabled the same way as NTP, syslog and RADIUS services.
@@ -398,15 +427,15 @@ The configuration of the firewall was also required for this task. The Edge Rout
 
 Each office has IP phones sharing the access ports with the PCs behind them. The phone tags its own traffic with the voice VLAN and passes the PC's frames untagged, so one cable carries both. Office A uses VLAN 140 and Office B VLAN 240, which keeps voice in its own subnet and makes it easy to prioritize later. This is also where the two exceptions in the LLDP and port security sections come from.
 
-<img src="/assets/images/enp/45ipphones.png" alt="ipphones" class="post-img post-img--left" style="--w: 650px;">
-
-For the call agent I added a 2811 router, CALL_MGR, at 172.16.8.11 in the server VLAN, running Cisco Unified CME. The phones find it through DHCP option 150, which is the TFTP Server field in the Packet Tracer DHCP pools, set on both DHCP_A and DHCP_B for the voice pools. Extensions 1001 to 1007 are assigned automatically as phones register.
+For the call agent I added a 2811 router, CALL_MGR, at 172.16.8.11 in the server VLAN, running Cisco Unified CME. The phones find it through DHCP option 150, which is the TFTP Server field in the Packet Tracer DHCP pools, set on both DHCP_A and DHCP_B for the voice pools. Extensions 1001 to 1006 are assigned automatically as phones register.
 
 Calls work in both directions between the two offices, which also proves the routing between the sites is fine for more than ping.
 
 <img src="/assets/images/enp/46_phone_registration.png" alt="phone_registration" class="post-img post-img--left" style="--w: 750px;">
 
 CME is a small branch product and it is not what a new deployment would use today. I used it because it is the only call agent available in Packet Tracer. What it stands in for has changed, but the network side has not: voice VLAN, PoE, provisioning through DHCP and QoS marking are all still exactly this. A company of this size today would run Microsoft Teams Phone, Zoom Phone or Webex Calling, reach the PSTN over a SIP trunk instead of a PRI, and use SIP handsets or softphones, where the voice VLAN is learned through LLDP-MED rather than CDP.
+
+[Configurations for this part](https://github.com/mvltblt/network-configurations/tree/main/Part-6-Network%20Services)
 
 ## Part 7 - ACLs and Layer 2 Security
 
@@ -415,15 +444,17 @@ CME is a small branch product and it is not what a new deployment would use toda
 Distribution Switches filter traffic between VLANs as well as between the two offices. Firewalls handle traffic between the inside, DMZ, and the Internet. The rules follow the trust zones from Part 2. Each zone can only reach what its role needs.
 
 <img src="/assets/images/enp/47_acllist.png" alt="acllist" class="post-img post-img--left" style="--w: 375px;">
+
 Only Admins and Managers VLANs have access for management. Both offices’ devices can be accessed through from Managers VLANs, including Edge Routers and firewalls. No other VLANs can initiate any management connection at all.
 
 PrinterA2 is available only for HR and Admins, PrinterB1 for Logistics, and PrinterB2 for Accounting & Finance and Admins. This is enforced on the printer VLAN’s own SVI, so the user VLANs can share a single access list. In a Windows environment, users would print through a print server instead. Printer permissions are set by AD group, and only the print server is allowed into the printer VLAN. I show that approach in my Windows Server project. There’s no need to mention DHCP in the table because each of the user access lists permits it first, so clients can always get an address.
 
 Both guest VLANs, 100 in Office A and 200 in Office B, use the same GUEST_IN list. Guests get DHCP, DNS queries to DNS_1 and the company website. Everything else in 172.16.0.0/20 is denied, and the internet is open except for ICMP.
 
-The ACLs are stateless, so “replies only” means the return traffic of a connection that someone else started such as a user answering an admin’s ping. These are also extended access lists, so they are applied inbound on the SVIs, right at the source of the traffic. The printer VLANs are the exception, where the list that decides who can reach the printer is applied outbound, towards the printer. They must be applied on all four Distribution switches as opposed to one per pair because HSRP allows either one of the two switches to become the gateway.
+The ACLs are stateless, so “replies only” means the return traffic of a connection that someone else started such as a user answering an admin’s ping. These are also extended access lists, so they are applied inbound on the SVIs, right at the source of the traffic. The printer VLANs are the exception, where the list that decides who can reach the printer is applied outbound, towards the printer. They must be applied on both Distribution switches of the office, not just one, because HSRP allows either switch to become the gateway.
 
 On the firewalls, the policy between the Internet, the DMZ and the inside is shown below.
+
 <img src="/assets/images/enp/48_firewall_acl.png" alt="firewall_acl" class="post-img post-img--left" style="--w: 400px;">
 
 As you can see above, the DMZ servers can only reach the Internet for what they actually need: DNS, sending mail, and updates over HTTP and HTTPS. The DMZ is untrusted in both directions, which is the whole point of having one. The Edge Routers sit outside the firewall, so the same management services had to be opened for them as well. Until this point they could not reach the NTP, syslog or RADIUS servers at all, which is what the RADIUS section referred to. Return traffic for connections started from the inside is allowed by the firewall's stateful inspection, so "Nothing" in the table only covers connections started from outside.
@@ -431,13 +462,16 @@ As you can see above, the DMZ servers can only reach the Internet for what they 
 Packet Tracer's ASA does not recognize several service names and needs the port numbers instead.
 
 ### Layer 2 Security
-ACLs work at layer 3 and are based on the assumption that the frame carrying the packet is valid. We need to protect our ports too. Port security restricts the list of MAC addresses accepted by the port, DHCP snooping ensures that a rogue server cannot distribute IP addresses and keeps track of the lease for each port, and Dynamic ARP Inspection verifies all ARP messages on an untrusted port against this database. 
-All three work on Access switches for all VLANs active, but only uplinks to Distribution switches are trusted.
+
+ACLs work at layer 3 and are based on the assumption that the frame carrying the packet is valid. We need to protect our ports too. Port security restricts the list of MAC addresses accepted by the port, DHCP snooping ensures that a rogue server cannot distribute IP addresses and keeps track of the lease for each port, and Dynamic ARP Inspection verifies all ARP messages on an untrusted port against this database. All three work on Access switches for all VLANs active, but only uplinks to Distribution switches are trusted.
 
 Port security stores the known addresses in the running configuration, which ensures that the addresses stay on the same list across reboots and logs the violations without taking the port offline. It means that an unauthorized device will not be able to take down a legitimate one. As far as ports connected to an IP phone are concerned, they are allowed to have multiple addresses because the phone and the PC connected to it will appear in the same port. Also, DHCP snooping applies a rate limit to untrusted ports to ensure that there is no overflow in the address pool due to the flood of requests, and the limit on access point ports is set even higher because all the wireless clients on the AP send DHCP requests via the port.
 
 There is one issue that needs explanation. Printers and the wireless controllers use static addresses, and therefore are not included in the snooping table and the inspection drops their ARP packets. On a real deployment, one would create an ARP ACL and add their addresses and MAC addresses into it. In this particular topology, those ports will be trusted for inspection, while port security holds their addresses down instead.
+
 <img src="/assets/images/enp/49_layer2sec.png" alt="layer2sec" class="post-img post-img--left" style="--w: 650px;">
+
+[Configurations for this part](https://github.com/mvltblt/network-configurations/tree/main/Part-7-ACLs%20and%20Layer%202%20Security)
 
 ## Part 8 - Wireless
 
@@ -446,8 +480,10 @@ There is one issue that needs explanation. Printers and the wireless controllers
 Each office has a Wireless LAN Controller in its IDF and one lightweight access point per department. The controller holds the WLANs and pushes them to the APs, so every SSID is configured once per office instead of on each AP.
 
 <img src="/assets/images/enp/50_wireless_ssid.png" alt="wireless_ssid" class="post-img post-img--left" style="--w: 250px; --mobile-w: 150px;">
-The staff WLANs use WPA2-Enterprise (802.1X). Users authenticate using their own credentials that get verified by the RADIUS server at 172.16.8.6, so just one account is needed for the user management. Every wireless device has its own account, just like every employee in production. Packet Tracer provides EAP-MD5 only, which cannot be used on real Wi-Fi. It generates no encryption keys and does not authenticate the server. In production, PEAP-MSCHAPv2 or EAP-TLS with RADIUS and Active Directory authentication would be used.
-MVT-Guest SSID uses WPA2-PSK with AES encryption. It is advertised in both buildings under the same name and passphrase so that guests remain connected even when walking through them.
+
+The staff WLANs use WPA2-Enterprise (802.1X). Users authenticate using their own credentials that get verified by the RADIUS server at 172.16.8.6, so a leaving employee is removed in one place instead of changing a shared passphrase on every device. Every wireless device has its own account, just like every employee would in production. Packet Tracer provides EAP-MD5 only, which cannot be used on real Wi-Fi. It generates no encryption keys and does not authenticate the server. In production, PEAP-MSCHAPv2 or EAP-TLS with RADIUS and Active Directory authentication would be used.
+
+The MVT-Guest SSID uses WPA2-PSK with AES encryption. It is advertised in both buildings under the same name and passphrase so that guests remain connected even when walking through them.
 
 The APs don't have a fixed address. Packet Tracer's lightweight AP only takes its address from DHCP, so each office has a pool in its Management VLAN, and that pool's WLC Address field tells the AP where its controller is. After that the AP registers with the controller on its own and downloads the WLANs.
 
@@ -457,13 +493,15 @@ In a campus that has its own controller, WLANs normally use central switching. T
 
 <img src="/assets/images/enp/52_aswa3_trunkinterfaces.png" alt="aswa3_trunkinterfaces" class="post-img post-img--left" style="--w: 650px;">
 
-Every AP broadcasts every SSID of its office. Packet Tracer ignores custom AP groups, so an SSID can't be tied to a single AP. This doesn't affect the design, because the SSID, not the AP, decides which VLAN a client ends up in. A guest phone that joins through the Sales AP still lands in VLAN 100. In production, a site this size would use one controller (or an HA pair) for both buildings and fewer SSIDs: one corporate SSID where RADIUS assigns the VLAN from the user's AD group, plus the guest SSID. Packet Tracer's controller can't assign VLANs from RADIUS, so each department has its own SSID here.
+Every AP broadcasts every SSID of its office. Packet Tracer ignores custom AP groups, so an SSID can't be tied to a single AP. This doesn't affect the design, because the SSID, not the AP, decides which VLAN a client ends up in. A guest phone that joins through the Sales AP still lands in VLAN 100, and one in Office B lands in VLAN 200. In production, a site this size would use one controller (or an HA pair) for both buildings and fewer SSIDs: one corporate SSID where RADIUS assigns the VLAN from the user's AD group, plus the guest SSID. Packet Tracer's controller can't assign VLANs from RADIUS, so each department has its own SSID here.
 
 Which AP a client joins depends on distance, and that comes from the Physical view. The coverage range of every AP is 25 meters, a realistic cell size for an office, and each AP sits in its department's room, so clients join the AP of their own room. Once connected, every client leases an address from its department's pool, and the ACLs from Part 7 apply to wireless clients the same way they apply to wired ones.
 
 <img src="/assets/images/enp/53_wpa2_key.png" alt="wpa2_key" class="post-img post-img--left" style="--w: 650px;">
 
 The guest phone reaches the company website but not the internal servers, and corporate laptops can't open YouTube.
+
+[Configurations for this part](https://github.com/mvltblt/network-configurations/tree/main/Part-8-Wireless)
 
 ## Part 9 - Physical Topology
 
