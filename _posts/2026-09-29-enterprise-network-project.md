@@ -98,11 +98,11 @@ EtherChannels are also configured as trunk links. Unlike the Access-Distribution
 
 ### IP Addresses
 
-You can see the number of employees and devices in the company below. The “IPs Required” column doesn’t match the number of employees or devices. I applied a growth factor of x4 to each department, but not to every row. Phones stay close to the employee count, since each employee just gets one desk phone.  Guest Wi-Fi is an assumption for visitors and Management is sized from the number of network devices.
+You can see the number of employees and devices in the company below. The “IPs Required” column doesn’t match the number of employees or devices. I applied a growth factor of x4 to each department, but not to every row. Phones stay close to the employee count, since each employee just gets one desk phone.  Guest Wi-Fi in both offices is sized as assumption for visitors, and Management is sized from the number of network devices.
 
 <img src="/assets/images/enp/13_office_ips.png" alt="office_ips" class="post-img post-img--left" style="--w: 650px;">
 
-<img src="/assets/images/enp/14_servers_ips.png" alt="servers_ips" class="post-img post-img--left" style="--w: 375px;">
+<img src="/assets/images/enp/14_servers_ips.png" alt="servers_ips" class="post-img post-img--left" style="--w: 425px;">
 
 I used the private IP address block 172.16.0.0/12, as defined in RFC 1918. Before explaining IP addressing, I would like to include a quick refresher on the subnetting from my notes, since the same reasoning applied across the whole network.
 
@@ -257,20 +257,17 @@ The Distribution switches relay client requests to the servers using `ip helper-
 After completing the configuration, I tested DHCP on PC2 (HR) and it worked correctly:
 
 <img src="/assets/images/enp/31_dhcp_output.png" alt="dhcp_output" class="post-img post-img--left" style="--w: 750px;">
+DHCP_A and DHCP_B have no redundancy here. If DHCP_A fails, new clients in Office A get no address. In production, two servers would run DHCP failover and both would serve every pool. Packet Tracer's DHCP server has no failover, so each office has a single server.
 
 ### DNS
+All DHCP pools assign DNS_1 (172.16.8.4), so all clients on the network send their DNS queries to DNS_1. DNS_1 resolves www.company.com and mail.company.com to the private IP addresses of the DMZ servers, while DNS_EXT in the DMZ resolves them to their public IP addresses (203.0.113.130 and 203.0.113.131) for outside users. This is referred to as split-brain DNS.
 
-DHCP assigns 172.16.8.4 as the DNS server on every pool so DNS_1 is the DNS server the entire network uses. It resolves www.company.com, the company's own website in the DMZ, as a plain A record, while google, youtube and mvtechblog are all delegated.
-
-This shows how DNS delegation works in a real enterprise network, where internal and external name resolution are handled by separate servers instead of one server holding every record. The delegation is set up on DNS_1 with an NS record for each domain pointing at dns2server, plus an A record for dns2server itself:
-
-<img src="/assets/images/enp/32_dns.png" alt="dns" class="post-img post-img--left" style="--w: 650px;">
-
-DNS_2 holds the actual record for that domain:
-
-<img src="/assets/images/enp/33_dns2.png" alt="dns2" class="post-img post-img--left" style="--w: 650px;">
-
-The PC only ever queries DNS_1. DNS_1 is the one that resolves the delegated name through DNS_2 and hands the result back. The client never talks to DNS_2 directly. The DMZ Web Server hosts a simple company page at www.company.com, which confirms that DNS, routing and the DMZ work together end to end.
+For other hosts, DNS_1 would normally use a forwarder, but Packet Tracer’s DNS server doesn’t support this feature. Therefore, DNS_1 uses NS entries for google, youtube and mvtechblog that point to PUBLIC_DNS, a server on the provider’s side that stands in for the internet’s DNS. To keep things simple, it runs on the same server as www.google.com.
+<img src="/assets/images/enp/32_dns1.png" alt="dns_output" class="post-img post-img--left" style="--w: 500px;">
+Actual delegation happens the other way round: PUBLIC_DNS delegates the company.com names to DNS_EXT (ns1.company.com, 203.0.113.132). Packet Tracer does exact matching of names, hence each name is delegated individually instead of delegating the whole zone.
+<img src="/assets/images/enp/33_publicdns.png" alt="dns_output" class="post-img post-img--left" style="--w: 500px;">
+<img src="/assets/images/enp/34_dns_ext.png" alt="dns_output" class="post-img post-img--left" style="--w: 500px;">
+In production, clients would have two internal DNS servers and guests would use a public DNS resolver. In this network, guests use DNS_1 too, but their ACL blocks everything else on the inside.
 
 Here is a test I ran with a simple copy of my own website.
 {% include video-loop.html src="/assets/images/enp/34_dns_video.mp4" class="video-loop--medium" %}
@@ -328,7 +325,7 @@ Firewalls don’t take part in the process. In the ASA of Packet Tracer, there i
 Each device until now had its own user account in the local storage. This is fine until you need to make changes like adding a new person or changing passwords, and then you need to edit twenty devices individually. The RADIUS moves the users to the central server and requests the devices to communicate with it. The central server is in VLAN 300 at 172.16.8.6. The devices have their IP addresses, shared secret and all user accounts stored in the central server instead of each individual device. The login list in each device asks the permission of the server first and uses the local user account only when it cannot reach the server. Otherwise, a problem with the server would result in locking out all devices simultaneously. 
 
 However, this backup plan is not a security weakness because it only applies to the server being unavailable, not for the server providing a rejected response to the authentication request. If RADIUS provides a rejected response, the device considers it as such and rejects the login attempt. The local account acts as the backup account here.
-
+The same RADIUS server is used to authenticate the employees on the corporate wireless local area networks that I configured in the Wireless configuration section. The two wireless controllers are configured as RADIUS clients with a different shared secret from the one that is used by the network devices. The RADIUS server in Packet Tracer has one user list for all the clients and so the Wi-Fi user can also connect to the switch. However, the VTY access list and physical console access prevent that from happening. In practice, there is a certain policy applied to each request; for instance, the NPS in Windows only allows the members of a certain AD group such as Network Admins access to the network devices.
 One note on the port number. 1645 is the old Cisco default, while the standard ports are 1812 and 1813. Packet Tracer's server listens on 1645, so that is what the clients use.
 
 <img src="/assets/images/enp/39_radius.png" alt="radius" class="post-img post-img--left" style="--w: 700px;">
@@ -362,7 +359,7 @@ The company has an IP block 203.0.113.0/24 and announces it to both providers. T
 Both Edge Routers carry the same DMZ translations, so the servers stay reachable when one of them is gone.
 
 <img src="/assets/images/enp/42_nat_translatios.png" alt="nat_translatinos" class="post-img post-img--left" style="--w: 650px;">
-
+In most networks of this size, the firewall connects to the providers directly and does the NAT itself, so translation happens on a stateful device. I placed Edge Routers in front of the firewalls to show eBGP multihoming, which is why NAT runs on the routers here.
 ### Multihoming and BGP
 
 Each Edge Router peers with its own provider over eBGP, and both advertise the company's block. On the outgoing path, the entire network will use EDGE_R1. The firewall default gateway routes will use EDGE_R1, with EDGE_R2 being secondary but with a higher administrative distance value. In case of a failure in EDGE_R1, the link will fail, and the firewall will switch over to EDGE_R2 automatically.
@@ -377,14 +374,16 @@ The firewall does not influence the process of choosing the best route. Packet T
 
 The two providers' routers have been connected, with an Internet core behind them. The network stops at the edge routers, so this side exists just to give the peering some place to be terminated.
 
-### E-mail
-The mail server is placed within the DMZ at IP address 172.16.12.3, which appears as 203.0.113.131 to the internet. It serves the domain name company.com using SMTP protocol for sending and POP3 protocol for incoming mail, and the accounts of users are located on the server.
+Owning a provider-independent /24 and running BGP with two providers is what larger organizations do. A company with fewer than a hundred people would more often use the addresses each provider assigns and let the firewall fail over between the two links. I built it this way to show how multihoming works.
 
-To connect to it, clients use the name. The name mail.company.com is delegated from DNS_1 to DNS_2 as any other external domain name is delegated, and DNS_2 stores the name. In the real-life scenario, the entire company.com zone should be delegated only once, and all the names below it would be delegated automatically. In Packet Tracer, each name is delegated individually since DNS server matches names exactly.
+### E-mail
+The mail server is placed within the DMZ at IP address 172.16.12.3, which appears as 203.0.113.131 to the internet. It serves the domain name company.com using SMTP protocol for sending and POP3 protocol for incoming mail, and the accounts of users are located on the server. Clients reach it by name. DNS_1 answers mail.company.com with the server's private address, and DNS_EXT answers outside users with the public one.
 
 I tested it between PC1 in Office A and PC5 in Office B. The ACLs block any direct connection between the two offices, but both can reach the DMZ, so they still exchange mail through the shared server. That is the intended shape. The offices are kept apart, and common services sit in between.
 
-From the internet, only SMTP and POP3 are opened to the mail server on the firewall. Both protocols send credentials and content in clear text here. In production they would run over TLS, which Packet Tracer's mail server does not support.
+From the internet, only SMTP and POP3 are opened to the mail server on the firewall. Both protocols send credentials and content in clear text here. In production they would run over TLS, which Packet Tracer's mail server does not support. 
+
+Hosting mailboxes on a DMZ server is rare today. A company of this size would use Microsoft 365 or Google Workspace. An on-premises Exchange server would sit on the inside network, with only a mail gateway in the DMZ.
 
 <img src="/assets/images/enp/43_email.png" alt="email" class="post-img post-img--left" style="--w: 700px;">
 
@@ -416,14 +415,15 @@ CME is a small branch product and it is not what a new deployment would use toda
 Distribution Switches filter traffic between VLANs as well as between the two offices. Firewalls handle traffic between the inside, DMZ, and the Internet. The rules follow the trust zones from Part 2. Each zone can only reach what its role needs.
 
 <img src="/assets/images/enp/47_acllist.png" alt="acllist" class="post-img post-img--left" style="--w: 375px;">
-Only Admins and Managers VLANs have access for management. Both offices' devices can be accessed through from Managers VLANs, including Edge Routers and firewalls. No other VLANs can initiate any management connection at all. 
+Only Admins and Managers VLANs have access for management. Both offices’ devices can be accessed through from Managers VLANs, including Edge Routers and firewalls. No other VLANs can initiate any management connection at all.
 
-PrinterA2 is available only for HR and Admins, PrinterB1 for Engineers and HR & Logistics, PrinterB2 for Accounting & Finance and Admins. This is enforced on the printer VLAN's own SVI, so the user VLANs can share a single access list. There's no need to mention DHCP in the table because each of the user access lists permits it first, so clients can always get an address.
+PrinterA2 is available only for HR and Admins, PrinterB1 for Logistics, and PrinterB2 for Accounting & Finance and Admins. This is enforced on the printer VLAN’s own SVI, so the user VLANs can share a single access list. In a Windows environment, users would print through a print server instead. Printer permissions are set by AD group, and only the print server is allowed into the printer VLAN. I show that approach in my Windows Server project. There’s no need to mention DHCP in the table because each of the user access lists permits it first, so clients can always get an address.
 
-The ACLs are stateless, so "replies only" means the return traffic of a connection that someone else started such as a user answering an admin's ping. These are also extended access lists, so they are applied inbound on the SVIs, right at the source of the traffic. The printer VLANs are the exception, where the list that decides who can reach the printer is applied outbound, towards the printer. They must be applied on all four Distribution switches as opposed to one per pair because HSRP allows either one of the two switches to become the gateway.
+Both guest VLANs, 100 in Office A and 200 in Office B, use the same GUEST_IN list. Guests get DHCP, DNS queries to DNS_1 and the company website. Everything else in 172.16.0.0/20 is denied, and the internet is open except for ICMP.
+
+The ACLs are stateless, so “replies only” means the return traffic of a connection that someone else started such as a user answering an admin’s ping. These are also extended access lists, so they are applied inbound on the SVIs, right at the source of the traffic. The printer VLANs are the exception, where the list that decides who can reach the printer is applied outbound, towards the printer. They must be applied on all four Distribution switches as opposed to one per pair because HSRP allows either one of the two switches to become the gateway.
 
 On the firewalls, the policy between the Internet, the DMZ and the inside is shown below.
-
 <img src="/assets/images/enp/48_firewall_acl.png" alt="firewall_acl" class="post-img post-img--left" style="--w: 400px;">
 
 As you can see above, the DMZ servers can only reach the Internet for what they actually need: DNS, sending mail, and updates over HTTP and HTTPS. The DMZ is untrusted in both directions, which is the whole point of having one. The Edge Routers sit outside the firewall, so the same management services had to be opened for them as well. Until this point they could not reach the NTP, syslog or RADIUS servers at all, which is what the RADIUS section referred to. Return traffic for connections started from the inside is allowed by the firewall's stateful inspection, so "Nothing" in the table only covers connections started from outside.
@@ -446,8 +446,8 @@ There is one issue that needs explanation. Printers and the wireless controllers
 Each office has a Wireless LAN Controller in its IDF and one lightweight access point per department. The controller holds the WLANs and pushes them to the APs, so every SSID is configured once per office instead of on each AP.
 
 <img src="/assets/images/enp/50_wireless_ssid.png" alt="wireless_ssid" class="post-img post-img--left" style="--w: 250px; --mobile-w: 150px;">
-
-All WLANs use WPA2-PSK with AES. The guest SSID has its own passphrase, so visitors never learn the one used by staff.
+The staff WLANs use WPA2-Enterprise (802.1X). Users authenticate using their own credentials that get verified by the RADIUS server at 172.16.8.6, so just one account is needed for the user management. Every wireless device has its own account, just like every employee in production. Packet Tracer provides EAP-MD5 only, which cannot be used on real Wi-Fi. It generates no encryption keys and does not authenticate the server. In production, PEAP-MSCHAPv2 or EAP-TLS with RADIUS and Active Directory authentication would be used.
+MVT-Guest SSID uses WPA2-PSK with AES encryption. It is advertised in both buildings under the same name and passphrase so that guests remain connected even when walking through them.
 
 The APs don't have a fixed address. Packet Tracer's lightweight AP only takes its address from DHCP, so each office has a pool in its Management VLAN, and that pool's WLC Address field tells the AP where its controller is. After that the AP registers with the controller on its own and downloads the WLANs.
 
@@ -457,7 +457,7 @@ In a campus that has its own controller, WLANs normally use central switching. T
 
 <img src="/assets/images/enp/52_aswa3_trunkinterfaces.png" alt="aswa3_trunkinterfaces" class="post-img post-img--left" style="--w: 650px;">
 
-Every AP broadcasts every SSID of its office. Packet Tracer ignores custom AP groups, so an SSID can't be tied to a single AP. This doesn't affect the design, because the SSID, not the AP, decides which VLAN a client ends up in. A guest phone that joins through the Sales AP still lands in VLAN 100.
+Every AP broadcasts every SSID of its office. Packet Tracer ignores custom AP groups, so an SSID can't be tied to a single AP. This doesn't affect the design, because the SSID, not the AP, decides which VLAN a client ends up in. A guest phone that joins through the Sales AP still lands in VLAN 100. In production, a site this size would use one controller (or an HA pair) for both buildings and fewer SSIDs: one corporate SSID where RADIUS assigns the VLAN from the user's AD group, plus the guest SSID. Packet Tracer's controller can't assign VLANs from RADIUS, so each department has its own SSID here.
 
 Which AP a client joins depends on distance, and that comes from the Physical view. The coverage range of every AP is 25 meters, a realistic cell size for an office, and each AP sits in its department's room, so clients join the AP of their own room. Once connected, every client leases an address from its department's pool, and the ACLs from Part 7 apply to wireless clients the same way they apply to wired ones.
 
@@ -507,3 +507,4 @@ The DMZ and the internal servers share a room but not a rack, so the separation 
 In this project, I designed and simulated a real enterprise network as far as Packet Tracer allowed me. I built each part the way it would be built in a real network and explained the reasoning behind every decision.
 
 At the start of the project, I didn’t expect Packet Tracer’s limitations to come up this often. Each time a feature didn’t work the way it would on real IOS, I had to find another way to reach the same result, which taught me the solutions I wouldn’t have looked for otherwise. At the same time, these limitations also restricted how far the design could go in Packet Tracer. That’s why I’m planning to build my future projects in GNS3. Even though building a project like this in GNS3 is more costly, it runs real device images, which will let me design a larger and more complex network.
+
